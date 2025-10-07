@@ -48,8 +48,8 @@ read_success:
 ; --- dump memory content ---
 ;dump 16 bytes at 0x1000 for debugging
 mov ax, 0x0000
-mov ds, ax
-mov si, 0x1000
+mov es, ax
+mov di, 0x1000
 mov cx, 16
 
 
@@ -58,9 +58,10 @@ mov cx, 16
 ; CX = number of bytes to dump
 
 dump_loop:
-    lodsb                 ; AL = [DS:SI], SI++
-    xor ah, ah
-    mov dx, ax            ; DX = 00AL
+    mov al, [es:di]
+    inc di          ; AL = [ES:DI], DI++
+    xor dh, dh
+    mov dl, al            ; DX = 00AL
     call print_hex        ; fills HEX_OUTPUT with "0x??"
     mov bx, HEX_OUTPUT
     call print_string     ; print the buffer
@@ -81,7 +82,7 @@ jmp 0x0000:1000 ;Jump to loaded code at 0000:1000 (physical 0x1000)
 
 ;------------ data ------------ ;
 STATUS_MSG db "Am ajuns aici!", 0
-HEX_OUTPUT db 0
+HEX_OUTPUT db '0x0000', 0 ; buffer for print_hex output
 BootDrive db 0 ; to store boot drive (0x80 for first HDD, 0x00 for floppy)
 DISK_ERR_MSG db "Disk read error!", 0
 SECTORS equ 1  ; number of sectors to read
