@@ -15,6 +15,16 @@ start:
     mov ax, cs
     call print_hex
 
+    ; Disable NMI
+    ; in al, 0x70       ; citește valoarea curentă din portul RTC Index
+    ; or al, 0x80       ; setează bitul 7 (disable NMI)
+    ; out 0x70, al
+
+    ;Enabling NMI back
+    ; in al, 0x70
+    ; and al, 0x7F      ; șterge bitul 7
+    ; out 0x70, al
+
     ; Infinite loop to halt execution
     jmp $
 
