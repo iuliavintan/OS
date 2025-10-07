@@ -61,6 +61,7 @@ start_stage2:
     mov bx, MSG_A20_SUCCESS
     call print_string
 
+
     ; Dezactivează NMI
     mov al, 0x80
     out 0x70, al
@@ -69,10 +70,7 @@ start_stage2:
     ; Acum poți trece la GDT / Protected Mode
     ;jmp setup_gdt
 
-a20_fail:
-    mov si, A20_ERR_MSG
-    call print_string
-    jmp $
+
 
 MSG_ENTER_STAGE2 db "Entered stage2", 13, 10, 0
 MSG_CALL_ENABLE_A20 db "Calling enable_a20", 13, 10, 0
@@ -85,6 +83,12 @@ A20_ERR_MSG db "A20 enable failed!", 13, 10, 0
 ; get_a20_state - test A20 by comparing byte at 0x0000:0x0500 and 0xFFFF:0x0510
 ; Returns: AX = 1 if A20 on (no wrap), AX = 0 if A20 off (wrap)
 ;---------------------------------------------------------------------------;
+
+a20_fail:
+    mov bx, A20_ERR_MSG
+    call print_string
+    jmp $
+
 get_a20_state:
     pushf
     push ax
