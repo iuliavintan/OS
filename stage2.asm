@@ -13,8 +13,8 @@ start:
     sti
  
     ; Print status message
-    mov bx, MSG_ENTER_STAGE2
-    call print_string
+   ; mov bx, MSG_ENTER_STAGE2
+    ;call print_string
 
 
     call a20_check
@@ -23,41 +23,39 @@ start:
 
 
     call a20_enable_safe
-    mov bx, MSG_RETURNED_ENABLE_A20
-    call print_string
+   ; mov bx, MSG_RETURNED_ENABLE_A20
+    ;call print_string
 
 
     
     cmp ax, 1
     jne a20_fail
-    mov bx, MSG_A20_SUCCESS
-    call print_string
+  ;  mov bx, MSG_A20_SUCCESS
+  ; call print_string
     jmp e820_caller
 
-e820_map:
-    ;getting the memory map using E820
 
+e820_caller:
     xor ax, ax
     mov es, ax
     call do_e820
-    ret
-
-e820_caller:
-    call e820_map
-    test ax, ax
+    test bp, bp
     jz .e820_fail
-    mov bx, E820_SUCCESS_MSG
-    call print_string
+    ; mov bx, E820_SUCCESS_MSG
+    ; call print_string
     jmp .after_e820
 .e820_fail:
-    mov bx, E820_FAIL_MSG
-    call print_string
+   ; mov bx, E820_FAIL_MSG
+    ;call print_string
 
 .after_e820:
-    mov dx,ax 
-    call print_hex
-    mov bx, HEX_OUTPUT
-    call print_string
+     
+    ; mov dx,bp ; get number of entries
+    ; call print_hex
+    ; mov bx, HEX_OUTPUT
+    ; call print_string
+    ; mov bx,DEBUG_MSG
+    ; call print_string
     jmp load_gdt
 
 
@@ -200,19 +198,19 @@ io_delay:
     ret
 
 a20_already_enabled:
-    mov bx, MSG_A20_SUCCESS
-    call print_string
+   ; mov bx, MSG_A20_SUCCESS
+   ; call print_string
     jmp e820_caller
 a20_fail:
-    mov bx, A20_ERR_MSG
-    call print_string
+   ; mov bx, A20_ERR_MSG
+   ; call print_string
     jmp $
 
 ; --- E820 memory map retrieval code ---
 
- mmap_ent equ 0x8000             ; the number of entries will be stored at 0x8000
+ mmap_ent equ 0x9000             ; the number of entries will be stored at 0x8000
 do_e820:
-        mov di, 0x8004          ; Set di to 0x8004. Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
+    mov di, 0x9004          ; Set di to 0x8004. Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
 	xor ebx, ebx		; ebx must be 0 to start
 	xor bp, bp		; keep an entry count in bp
 	mov edx, 0x0534D4150	; Place "SMAP" into edx
@@ -258,8 +256,9 @@ do_e820:
 	ret
 
 
+
 ; ---------------- GDT (flat) ----------------
-align 8
+ align 8
 gdt_start:
 gdt_null:                   ; selector 0x00
     dq 0
@@ -290,34 +289,62 @@ gdt_desc:
 CODE32_SEL equ (gdt_code32 - gdt_start)    ; 0x08
 DATA_SEL   equ (gdt_data   - gdt_start)    ; 0x10
 
-
 load_gdt:
-    cli
-    lgdt [gdt_desc]
+    [BITS 16]
 
-  
-    mov eax, cr0
-    or eax, 1
-    mov cr0, eax      ; enter protected mode
-    
-    jmp CODE32_SEL:pm_entry  ; far jump -> load CS
+    ; 0) absolutely no more BIOS prints beyond here
+    cli
+
+    ; 1) mask NMI (CLI does not mask NMI)
+    in   al, 0x70
+    or   al, 0x80            ; bit7 = 1 disables NMI
+    out  0x70, al
+    in   al, 0x71            ; dummy read (stabilize)
+
+    ; 2) mask both PICs completely (no IRQs)
+    mov  al, 0xFF
+    out  0x21, al            ; master PIC
+    out  0xA1, al            ; slave PIC
+
+    ; 3) send EOI to clear any in-service IRQs that BIOS left
+    mov  al, 0x20
+    out  0x20, al            ; EOI master
+    out  0xA0, al            ; EOI slave
+
+    mov ax, 0x0003         ; 80x25 text mode (forces VGA text memory active)
+int 0x10
+
+    ; 4) load a dummy IDT (base=0, limit=0) so any stray int faults cleanly
+    align 8
+    idt_ptr16:  dw 0
+                dd 0
+    lidt [cs:idt_ptr16]      ; use CS override in case DS changed
+
+    ; 5) load a known-good GDT (CS override again, don’t trust DS)
+    lgdt [cs:gdt_desc]
+
+    ; 6) enter PE and FAR-JUMP IMMEDIATELY (no other instructions!)
+    mov  eax, cr0
+    or   eax, 1              ; CR0.PE = 1
+    mov  cr0, eax
+    jmp  CODE32_SEL:pm_entry ; far jump flushes CS
+
 
 [BITS 32]
 pm_entry:
-    mov ax, DATA_SEL  ; reload data segment registers
+    ; interrupts still off; no IDT yet
+    mov ax, DATA_SEL
     mov ds, ax
-    mov es, ax
+    mov es, ax          ; <-- ES MUST be a flat data selector for STOS*
     mov fs, ax
     mov gs, ax
     mov ss, ax
+    mov esp, 0x90000
 
-    mov esp, 0x90000  ; setup a 32bit stack
+    mov dword [0xB8000], 0x074B074F   ; 'O'(4F)|attr 07, 'K'(4B)|attr 07
 
-    mov edi, 0xB8000
-    mov dword [edi], 0x074B074F    ; 'O' 'K' (little endian: 0x..4B 0x..4F)
-.halt:
-    hlt
-    jmp .halt
+.halt:  hlt
+        jmp .halt
 
 
 ; ------------ messages ------------
