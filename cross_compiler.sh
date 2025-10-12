@@ -65,13 +65,11 @@ which -- $TARGET-as || echo $TARGET-as is not in the PATH
 
 mkdir -p build-gcc
 cd build-gcc
-../gcc-$GCC_VERSION/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers --disable-multilib
+../gcc-$GCC_VERSION/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c --without-headers --disable-multilib
 make all-gcc -j$(nproc)
 make all-target-libgcc -j$(nproc)
-make all-target-libstdc++-v3
 make install-gcc
 make install-target-libgcc
-make install-target-libstdc++-v3
 
 cd $HOME/src
 
@@ -93,3 +91,5 @@ rm -rf ~/src/build-binutils ~/src/build-gcc
 echo "===Cross compiler successfully built==="
 echo "Add this to your ~/.bashrc:"
 echo "export PATH=\"$PREFIX/bin:\$PATH\""
+
+export PATH="$HOME/opt/cross/bin:$PATH"
