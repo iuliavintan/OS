@@ -54,7 +54,11 @@ e820_caller:
     call print_string
 
 .after_e820:
-    jmp $
+    mov dx,ax 
+    call print_hex
+    mov bx, HEX_OUTPUT
+    call print_string
+    jmp load_gdt
 
 
 
@@ -252,6 +256,68 @@ do_e820:
 .failed:
 	stc			; "function unsupported" error exit
 	ret
+
+
+; ---------------- GDT (flat) ----------------
+align 8
+gdt_start:
+gdt_null:                   ; selector 0x00
+    dq 0
+
+gdt_code32:                 ; selector 0x08  (32-bit CS)
+    dw 0xFFFF               ; limit 0..15
+    dw 0x0000               ; base 0..15
+    db 0x00                 ; base 16..23
+    db 0x9a           ; access = 0x9A (code, readable, ring0, present)
+    db 0xcf           ; flags+limitHi = 0xCF (G=1, D=1, L=0, AVL=0; limitHi=0xF)
+    db 0x00                 ; base 24..31
+
+gdt_data:                   ; selector 0x10  (DS/ES/SS/FS/GS)
+    dw 0xFFFF
+    dw 0x0000
+    db 0x00
+    db 0x92           ; access = 0x92 (data, rw, ring0, present)
+    db 0xcf            ; 0xCF (G=1, D=1)
+    db 0x00
+
+gdt_end:
+
+gdt_desc:
+    dw gdt_end - gdt_start - 1
+    dd gdt_start
+
+; handy selectors
+CODE32_SEL equ (gdt_code32 - gdt_start)    ; 0x08
+DATA_SEL   equ (gdt_data   - gdt_start)    ; 0x10
+
+
+load_gdt:
+    cli
+    lgdt [gdt_desc]
+
+  
+    mov eax, cr0
+    or eax, 1
+    mov cr0, eax      ; enter protected mode
+    
+    jmp CODE32_SEL:pm_entry  ; far jump -> load CS
+
+[BITS 32]
+pm_entry:
+    mov ax, DATA_SEL  ; reload data segment registers
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
+    mov esp, 0x90000  ; setup a 32bit stack
+
+    mov edi, 0xB8000
+    mov dword [edi], 0x074B074F    ; 'O' 'K' (little endian: 0x..4B 0x..4F)
+.halt:
+    hlt
+    jmp .halt
 
 
 ; ------------ messages ------------
