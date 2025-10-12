@@ -2,7 +2,7 @@
 [org 0x1000]               ; stage-1 will load us at 0000:1000
 
 
-;initialise real mode
+
 start:
     cli
     mov ax, cs
@@ -11,18 +11,15 @@ start:
     mov ss, ax
     mov sp, 0x7c00          ;setting up a temporary stack
     sti
-
+ 
     ; Print status message
     mov bx, MSG_ENTER_STAGE2
     call print_string
 
+
     call a20_check
     cmp ax,1 
-    jmp a20_already_enabled
-
-
-    mov bx, MSG_CALL_ENABLE_A20
-    call print_string
+    je a20_already_enabled
 
 
     call a20_enable_safe
@@ -35,8 +32,34 @@ start:
     jne a20_fail
     mov bx, MSG_A20_SUCCESS
     call print_string
+    jmp e820_caller
 
-;  AX=1 if A20 enabled/now OK, AX=0 on failure
+e820_map:
+    ;getting the memory map using E820
+
+    xor ax, ax
+    mov es, ax
+    call do_e820
+    ret
+
+e820_caller:
+    call e820_map
+    test ax, ax
+    jz .e820_fail
+    mov bx, E820_SUCCESS_MSG
+    call print_string
+    jmp .after_e820
+.e820_fail:
+    mov bx, E820_FAIL_MSG
+    call print_string
+
+.after_e820:
+    jmp $
+
+
+
+
+; --- A20 enabling code (safe method with fallbacks) ---
 a20_enable_safe:
     call a20_check
     cmp  ax, 1
@@ -101,38 +124,46 @@ a20_check:
 
     xor  ax, ax
     mov  ds, ax
-    mov  si, 0x0500          ; avoid IVT (0x0000–0x03FF) & BDA (0x0400–0x04FF)
+    mov  si, 0x0500          ; safe low offset (avoid IVT/BDA)
 
     mov  ax, 0xFFFF
     mov  es, ax
     mov  di, si              ; ES:DI = 0xFFFF:0x0500 -> linear 0x100000+0x500
 
-    mov  al, [ds:si]         ; save originals
-    push ax
+    ; save originals (low and high)
+    mov  al, [ds:si]
+    push ax                  ; save low byte in AL
     mov  al, [es:di]
-    push ax
+    push ax                  ; save high byte in AL
 
+    ; write test pattern
     mov  byte [ds:si], 0x00
     mov  byte [es:di], 0xFF
 
-    cmp  byte [ds:si], 0x00
-    jne  .enabled
-    cmp  byte [es:di], 0xFF
-    jne  .enabled
+    ; check results
+    mov  al, [ds:si]
+    cmp  al, 0x00
+    jne  .disabled           ; mismatch => aliasing => A20 disabled
+    mov  al, [es:di]
+    cmp  al, 0xFF
+    jne  .disabled           ; mismatch => aliasing => A20 disabled
 
-    pop  ax                  ; restore
-    mov  [es:di], al
-    pop  ax
-    mov  [ds:si], al
-    xor  ax, ax
-    jmp  .done
-
-.enabled:
+    ; enabled: restore bytes and return AX=1
     pop  ax
     mov  [es:di], al
     pop  ax
     mov  [ds:si], al
     mov  ax, 1
+    jmp  .done
+
+.disabled:
+    ; restore bytes and return AX=0
+    pop  ax
+    mov  [es:di], al
+    pop  ax
+    mov  [ds:si], al
+    xor  ax, ax
+
 .done:
     pop  si
     pop  di
@@ -140,6 +171,7 @@ a20_check:
     pop  ds
     popf
     ret
+
 
 ; --- tiny helpers ---
 kbc_wait_in_clear:
@@ -166,19 +198,72 @@ io_delay:
 a20_already_enabled:
     mov bx, MSG_A20_SUCCESS
     call print_string
-    jmp $
+    jmp e820_caller
 a20_fail:
     mov bx, A20_ERR_MSG
     call print_string
     jmp $
 
+; --- E820 memory map retrieval code ---
+
+ mmap_ent equ 0x8000             ; the number of entries will be stored at 0x8000
+do_e820:
+        mov di, 0x8004          ; Set di to 0x8004. Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
+	xor ebx, ebx		; ebx must be 0 to start
+	xor bp, bp		; keep an entry count in bp
+	mov edx, 0x0534D4150	; Place "SMAP" into edx
+	mov eax, 0xe820
+	mov [es:di + 20], dword 1	; force a valid ACPI 3.X entry
+	mov ecx, 24		; ask for 24 bytes
+	int 0x15
+	jc short .failed	; carry set on first call means "unsupported function"
+	mov edx, 0x0534D4150	; Some BIOSes apparently trash this register?
+	cmp eax, edx		; on success, eax must have been reset to "SMAP"
+	jne short .failed
+	test ebx, ebx		; ebx = 0 implies list is only 1 entry long (worthless)
+	je short .failed
+	jmp short .jmpin
+.e820lp:
+	mov eax, 0xe820		; eax, ecx get trashed on every int 0x15 call
+	mov [es:di + 20], dword 1	; force a valid ACPI 3.X entry
+	mov ecx, 24		; ask for 24 bytes again
+	int 0x15
+	jc short .e820f		; carry set means "end of list already reached"
+	mov edx, 0x0534D4150	; repair potentially trashed register
+.jmpin:
+	jcxz .skipent		; skip any 0 length entries
+	cmp cl, 20		; got a 24 byte ACPI 3.X response?
+	jbe short .notext
+	test byte [es:di + 20], 1	; if so: is the "ignore this data" bit clear?
+	je short .skipent
+.notext:
+	mov ecx, [es:di + 8]	; get lower uint32_t of memory region length
+	or ecx, [es:di + 12]	; "or" it with upper uint32_t to test for zero
+	jz .skipent		; if length uint64_t is 0, skip entry
+	inc bp			; got a good entry: ++count, move to next storage spot
+	add di, 24
+.skipent:
+	test ebx, ebx		; if ebx resets to 0, list is complete
+	jne short .e820lp
+.e820f:
+	mov [es:mmap_ent], bp	; store the entry count
+	clc			; there is "jc" on end of list to this point, so the carry must be cleared
+	ret
+.failed:
+	stc			; "function unsupported" error exit
+	ret
+
 
 ; ------------ messages ------------
-MSG_ENTER_STAGE2 db "Entered stage2", 13, 10, 0
-MSG_CALL_ENABLE_A20 db "Calling enable_a20", 13, 10, 0
-MSG_RETURNED_ENABLE_A20 db "Returned from enable_a20", 13, 10, 0
-MSG_A20_SUCCESS db "A20 enabled!", 13, 10, 0
-A20_ERR_MSG db "A20 enable failed!", 13, 10, 0
+HEX_OUTPUT db '0x0000', 0 
+MSG_ENTER_STAGE2 db "Entered stage2",13, 10, 0
+MSG_RETURNED_ENABLE_A20 db "Returned from enable_a20", 13,10, 0
+MSG_A20_SUCCESS db "A20 enabled!",13, 10, 0
+A20_ERR_MSG db "A20 enable failed!", 13,10,0
+E820_SUCCESS_MSG db "E820 memory map obtained!",13,10,0
+E820_FAIL_MSG db "E820 memory map failed!",13,10,0
+DEBUG_MSG db "Debug: here",13,10,0
 
 %include "print_string.asm"
+%include "print_hex.asm"
 
