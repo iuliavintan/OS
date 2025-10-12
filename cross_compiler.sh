@@ -52,8 +52,13 @@ echo "===Downloading GCC $GCC_VERSION sources==="
 wget -4 -nc https://ftp.gnu.org/gnu/gcc/gcc-$GCC_VERSION/gcc-$GCC_VERSION.tar.xz
 
 # Always extract to ensure the directory exists and is up-to-date
-rm -rf gcc-$GCC_VERSION
-tar -xf gcc-$GCC_VERSION.tar.xz
+if tar -tf gcc-$GCC_VERSION.tar.xz >/dev/null 2>&1; then
+  rm -rf gcc-$GCC_VERSION
+  tar -xf gcc-$GCC_VERSION.tar.xz
+else
+  echo "Error: gcc-$GCC_VERSION.tar.xz is not a valid tar archive."
+  exit 1
+fi
 
 
 
