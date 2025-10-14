@@ -46,7 +46,7 @@ dap:
     db 0x10     ; size of this structure (16 bytes)
     db 0x00     ; reserved
     dw SECTORS        ; number of sectors to read
-    dw 0x1000   ; memory address to load to; offset  (buffer = 0000:7DFF => phys 0x7DFF)
+    dw 0x1000   ; memory address to load to; offset  (buffer = 0000:1000 => phys 0x1000)
     dw 0x0000   ; segment
     dq 1        ; starting LBA (here: sector right after MBR)
 
