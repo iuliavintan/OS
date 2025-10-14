@@ -97,8 +97,8 @@ pm_entry:
     mov gs, ax
     mov ss, ax
     mov esp, 0x90000
-    
 
+;rndm comm
     call main  
     
     hlt
