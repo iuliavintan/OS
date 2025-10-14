@@ -2,7 +2,7 @@
 
 extern main                 ; main() in C code (boot/stage2.c)
 
-; [org 0x1000]               ; stage-1 will load us at 0000:1000
+;[org 0x1000]               ; stage-1 will load us at 0000:1000
 
 start:
     cli
@@ -33,9 +33,12 @@ e820_caller:
     ; call print_string
     jmp .after_e820
 .e820_fail:
-    ; mov bx, E820_FAIL_MSG
-    ; call print_string
-    jmp $
+;     mov bx, E820_FAIL_MSG
+    
+;     call print_string
+    hlt
+    ; jmp $
+    
 
 .after_e820:
     jmp load_gdt
@@ -86,7 +89,7 @@ load_gdt:
 
 [BITS 32]
 pm_entry:
-    cli
+   cli
     mov ax, DATA_SEL
     mov ds, ax
     mov es, ax         
@@ -94,9 +97,8 @@ pm_entry:
     mov gs, ax
     mov ss, ax
     mov esp, 0x90000
+    
 
-    mov dword [0xB8000], 0x074B074F   ; 'O'(4F)|attr 07, 'K'(4B)|attr 07
-    mov dword [0xB8000], 0x074B074F   ; call main() in C code
     call main  
     
     hlt
