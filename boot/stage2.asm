@@ -1,4 +1,7 @@
 [BITS 16]
+
+; extern main                 ; main() in C code (boot/stage2.c)
+
 [org 0x1000]               ; stage-1 will load us at 0000:1000
 
 start:
@@ -90,6 +93,9 @@ pm_entry:
     mov gs, ax
     mov ss, ax
     mov esp, 0x90000
+
+    ; call main                ; call main() in C code
+    ; hlt
 
     mov dword [0xB8000], 0x074B074F   ; 'O'(4F)|attr 07, 'K'(4B)|attr 07
 

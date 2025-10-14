@@ -31,6 +31,9 @@
 # --- Build & Run with QEMU ---
 ASM   := nasm
 QEMU  := qemu-system-i386
+CC    := gcc
+LD    := ld
+OBJCOPY := objcopy
 
 BINDIR    := boot/bin
 INCDIRS   := -Iboot/includes/ -I.
