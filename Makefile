@@ -98,9 +98,9 @@
 # ===================== Toolchain =====================
 # Prefer the cross toolchain; fall back to host if you must
 ASM      ?= nasm
-CC       ?= i686-elf-gcc
-LD       ?= i686-elf-ld
-OBJCOPY  ?= i686-elf-objcopy
+CC       ?=gcc
+LD       ?=ld
+OBJCOPY  ?=objcopy
 QEMU     ?= qemu-system-i386
 
 LDSCRIPT := boot/link.ld     # must have: ENTRY(pm_entry)
