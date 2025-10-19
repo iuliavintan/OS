@@ -1,4 +1,4 @@
-#include"vga.h"
+#include"vga.c"
 
 void kmain(void);
 
