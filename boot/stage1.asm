@@ -41,7 +41,7 @@ STATUS_MSG db "Am ajuns aici!", 0
 HEX_OUTPUT db '0x0000', 0 ; buffer for print_hex output
 BootDrive db 0 ; to store boot drive (0x80 for first HDD, 0x00 for floppy)
 DISK_ERR_MSG db "Disk read error!", 0
-SECTORS equ 3  ; number of sectors to read
+SECTORS equ 6  ; number of sectors to read
 dap:
     db 0x10     ; size of this structure (16 bytes)
     db 0x00     ; reserved
