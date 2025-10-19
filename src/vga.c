@@ -1,11 +1,11 @@
-#include"vga.h"
+#include "vga.h"
 #include"stdint.h"
 
 //current column and line i am at
 uint16_t column = 0;
 uint16_t line = 0;
 uint16_t *const vga = (uint16_t*const) 0xB8000; //sets location to the video mem
-const uint16_t defaultColour = (COLOUR8_BLACK << 8) | (COLOUR8_LIGHT_GREY <<12);
+const uint16_t defaultColour = (COLOUR8_LIGHT_GREY << 8) | (COULOUR8_MANGENTA <<12);
 uint16_t currentColour = defaultColour; //variable in case we want to change the colour
 
 

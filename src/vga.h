@@ -4,6 +4,7 @@
 #include"stdint.h"
 
 #define COLOUR8_BLACK 0
+#define COULOUR8_MANGENTA 5
 #define COLOUR8_LIGHT_GREY 7    
 
 #define vga_width 80
