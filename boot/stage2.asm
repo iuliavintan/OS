@@ -96,9 +96,9 @@ pm_entry:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, 0x90000
+    mov ebp, 0x90000
+    mov esp, ebp
 
-;rndm comm
     call main  
     
     hlt
