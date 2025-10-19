@@ -27,6 +27,9 @@ STAGE2_ASM := boot/stage2.asm
 STAGE2_C   := boot/stage2.c
 KERNEL_C   := src/kernel.c
 KERNEL_OBJ := $(BUILDDIR)/kernel.o
+C_SRCS := $(foreach d,$(C_SRC_DIRS),$(wildcard $(d)/*.c))
+C_OBJS := $(C_SRCS:%=$(BUILDDIR)/%.o)
+
 
 # === OUTPUT ===
 STAGE1_BIN := $(BINDIR)/stage1.bin
@@ -56,13 +59,17 @@ $(STAGE1_BIN): $(STAGE1_SRC) | dirs
 $(STAGE2_ASM_OBJ): $(STAGE2_ASM) | dirs
 	$(ASM) $(NASMFLAGS) $< -o $@
 
-$(STAGE2_C_OBJ): $(STAGE2_C) | dirs
+# $(STAGE2_C_OBJ): $(STAGE2_C) | dirs
+# 	$(CC) $(CFLAGS) -c $< -o $@
+
+# $(KERNEL_OBJ): $(KERNEL_C) | dirs
+# 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILDDIR)/%.c.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(KERNEL_OBJ): $(KERNEL_C) | dirs
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(STAGE2_ELF): $(STAGE2_ASM_OBJ) $(KERNEL_OBJ) | dirs
+$(STAGE2_ELF): $(STAGE2_ASM_OBJ) $(C_OBJS) | dirs
 	$(LD) $(LDFLAGS) $^ -o $@
 
 # $(STAGE2_ELF): $(STAGE2_ASM_OBJ) $(STAGE2_C_OBJ)
