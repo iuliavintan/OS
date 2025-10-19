@@ -10,6 +10,6 @@ typedef unsigned long int uint32_t;
 typedef signed long long int int64_t;
 typedef unsigned long long int uint64_t;
 
-typedef uint8_t boolean;
+typedef uint8_t boolean; //supposed to be bool?
 #define true 1
 #define false 0
