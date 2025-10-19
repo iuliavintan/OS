@@ -3,6 +3,12 @@ ASM      := nasm
 CC       := gcc
 LD       := ld
 OBJCOPY  := objcopy
+
+# CC       := i686-elf-gcc      # prefer cross toolchain
+# LD       := i686-elf-ld
+# OBJCOPY  := i686-elf-objcopy
+
+
 QEMU     := qemu-system-i386
 LDSCRIPT := boot/link.ld
 
@@ -13,12 +19,14 @@ DISK     := boot/disk.img
 DISK_SIZE := 64M
 SECTOR    := 512
 
-INCLUDES := -Iboot/includes/ -I.
+INCLUDES := -Iboot/includes/ -Isrc/ -I. 
 
 # === SURSE ===
 STAGE1_SRC := boot/stage1.asm
 STAGE2_ASM := boot/stage2.asm
 STAGE2_C   := boot/stage2.c
+KERNEL_C   := src/kernel.c
+KERNEL_OBJ := $(BUILDDIR)/kernel.o
 
 # === OUTPUT ===
 STAGE1_BIN := $(BINDIR)/stage1.bin
@@ -29,7 +37,7 @@ STAGE2_BIN     := $(BINDIR)/stage2.bin
 
 # === FLAGS ===
 NASMFLAGS := -f elf32 $(INCLUDES)
-CFLAGS    := -m32 -ffreestanding -fno-builtin -nostdlib -nostartfiles -fno-pic -fno-pie -fno-stack-protector -O2
+CFLAGS    := -m32 -ffreestanding -fno-builtin -nostdlib -nostartfiles -fno-pic -fno-pie -fno-stack-protector -O2 -Wall -Wextra $(INCLUDES)
 LDFLAGS   := -m elf_i386 -T $(LDSCRIPT)
 # === PHONY TARGETS ===
 .PHONY: all run clean dirs
@@ -51,8 +59,14 @@ $(STAGE2_ASM_OBJ): $(STAGE2_ASM) | dirs
 $(STAGE2_C_OBJ): $(STAGE2_C) | dirs
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(STAGE2_ELF): $(STAGE2_ASM_OBJ) $(STAGE2_C_OBJ)
+$(KERNEL_OBJ): $(KERNEL_C) | dirs
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(STAGE2_ELF): $(STAGE2_ASM_OBJ) $(KERNEL_OBJ) | dirs
 	$(LD) $(LDFLAGS) $^ -o $@
+
+# $(STAGE2_ELF): $(STAGE2_ASM_OBJ) $(STAGE2_C_OBJ)
+# 	$(LD) $(LDFLAGS) $^ -o $@
 
 $(STAGE2_BIN): $(STAGE2_ELF)
 	$(OBJCOPY) -O binary $< $@

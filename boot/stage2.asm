@@ -1,8 +1,8 @@
 [BITS 16]
 
-extern main                 ; main() in C code (boot/stage2.c)
+; extern main                 ; main() in C code (boot/stage2.c)
 
-;[org 0x1000]               ; stage-1 will load us at 0000:1000
+; [org 0x1000]               ; stage-1 will load us at 0000:1000
 
 start:
     cli
@@ -88,6 +88,8 @@ load_gdt:
 
 
 [BITS 32]
+global pm_entry
+extern kmain
 pm_entry:
    cli
     mov ax, DATA_SEL
@@ -99,7 +101,7 @@ pm_entry:
     mov ebp, 0x90000
     mov esp, ebp
 
-    call main  
+    call kmain  
     
     hlt
 
