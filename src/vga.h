@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VGA_H
+#define VGA_H
 
 #include"stdint.h"
 
@@ -12,3 +13,5 @@ void print(const char* s);
 void scroll_up();
 void new_line();
 void reset();
+
+#endif
