@@ -12,7 +12,7 @@ size_t strlen(const char *str ){
 void *memcpy(void* dest, const void* src, size_t n){
     const uint8_t *source = (const uint8_t*)src;
     uint8_t *destination = (uint8_t*)dest;
-    for( int i = 0 ; i < n ; ++i ){
+    for( uint32_t i = 0 ; i < n ; ++i ){
         destination[i] = source[i];
     }
     return dest;
@@ -21,7 +21,7 @@ void *memcpy(void* dest, const void* src, size_t n){
 void *memset(void* dest, int val, size_t n){
     uint8_t *destination = (uint8_t*)dest;
     uint8_t byte_val = (unsigned char)val;
-    for( int i = 0 ; i < n ; ++i ){
+    for( uint32_t i = 0 ; i < n ; ++i ){
         destination[i] = byte_val;
     }
     return dest;
