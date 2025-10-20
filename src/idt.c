@@ -73,5 +73,9 @@ void init_idt() {
 }
 
 void set_idt_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
-    // Implementation of setting an IDT gate
+    idt[num].base_low = base & 0xFFFF;
+    idt[num].sel = sel;
+    idt[num].alwaysZero = 0;
+    idt[num].flags = flags | 0x60;
+    idt[num].base_high = (base >> 16) & 0xFFFF;
 }
