@@ -16,20 +16,20 @@ void init_idt() {
 
     // Here you would typically set up the IDT gates using set_idt_gate()
 
-    outPortB(0x20,0x11); //start initialization of PIC
-    outPortB(0xA0,0x11);
+    OutPortByte(0x20,0x11); //start initialization of PIC
+    OutPortByte(0xA0,0x11);
 
-    outPortB(0x21,0x20); //remap offset of PIC
-    outPortB(0xA1,0x28);
+    OutPortByte(0x21,0x20); //remap offset of PIC
+    OutPortByte(0xA1,0x28);
 
-    outPortB(0x21,0x04); //setup cascading
-    outPortB(0xA1,0x02);
+    OutPortByte(0x21,0x04); //setup cascading
+    OutPortByte(0xA1,0x02);
 
-    outPortB(0x21,0x01); //set 8086 mode
-    outPortB(0xA1,0x01);
+    OutPortByte(0x21,0x01); //set 8086 mode
+    OutPortByte(0xA1,0x01);
 
-    outPortB(0x21,0x0); //unmask all interrupts
-    outPortB(0xA1,0x0);
+    OutPortByte(0x21,0x0); //unmask all interrupts
+    OutPortByte(0xA1,0x0);
 
 
     set_idt_gate(0 , (uint32_t)isr0 , 0x08, 0x8E);
@@ -65,6 +65,23 @@ void init_idt() {
     set_idt_gate(30 , (uint32_t)isr30 , 0x08, 0x8E);
     set_idt_gate(31 , (uint32_t)isr31 , 0x08, 0x8E);
 
+    set_idt_gate(32, (uint32_t)irq0 , 0x08, 0x8E);
+    set_idt_gate(33, (uint32_t)irq1 , 0x08, 0x8E);
+    set_idt_gate(34, (uint32_t)irq2 , 0x08, 0x8E);
+    set_idt_gate(35, (uint32_t)irq3 , 0x08, 0x8E);
+    set_idt_gate(36, (uint32_t)irq4 , 0x08, 0x8E);
+    set_idt_gate(37, (uint32_t)irq5 , 0x08, 0x8E);
+    set_idt_gate(38, (uint32_t)irq6 , 0x08, 0x8E); 
+    set_idt_gate(39, (uint32_t)irq7 , 0x08, 0x8E);
+    set_idt_gate(40, (uint32_t)irq8 , 0x08, 0x8E);
+    set_idt_gate(41, (uint32_t)irq9 , 0x08, 0x8E);
+    set_idt_gate(42, (uint32_t)irq10 , 0x08, 0x8E);
+    set_idt_gate(43, (uint32_t)irq11 , 0x08, 0x8E);
+    set_idt_gate(44, (uint32_t)irq12 , 0x08, 0x8E);
+    set_idt_gate(45, (uint32_t)irq13 , 0x08, 0x8E);
+    set_idt_gate(46, (uint32_t)irq14 , 0x08, 0x8E);
+    set_idt_gate(47, (uint32_t)irq15 , 0x08, 0x8E);
+
     set_idt_gate(128 , (uint32_t)isr128 , 0x08, 0x8E); //System calls
     set_idt_gate(177, (uint32_t)isr177 , 0x08, 0x8E); // System calls
 
@@ -78,4 +95,86 @@ void set_idt_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
     idt[num].alwaysZero = 0;
     idt[num].flags = flags | 0x60;
     idt[num].base_high = (base >> 16) & 0xFFFF;
+}
+
+ char * exception_messages[] = {
+    "Devision By Zero",
+    "Debug",
+    "Non Maskable Interrupt",
+    "Breakpoint",
+    "Into Detected Overflow",
+    "Out of Bounds",
+    "Invalid Opcode",
+    "No Coprocessor",
+    "Double Fault",
+    "Coprocessor Segment Overrun",
+    "Bad TSS",
+    "Segment Not Present",
+    "Stack Fault",
+    "General Protection Fault",
+    "Page Fault",
+    "Unknown Interrupt",
+    "Coprocessor Fault",
+    "Alignment Fault",
+    "Machine Check",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved", 
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved"
+};
+
+void isr_handler(struct IntrerruptRegisters* regs)
+{
+    if(regs->int_no<32)
+    {
+        print(exception_messages[regs->int_no]);
+        print("\n");
+        print("System Halted!");
+        while(1);
+    }
+}
+
+void *irq_routines[16] = {              //irq routines associated with our interrupt requests
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0
+};
+
+void irq_install_handler(int irq, void (*handler)(struct IntrerruprRegisters* r))
+{
+    irq_routines[irq] = handler;
+}
+
+
+void irq_uninstall_handler(int irq)
+{
+    irq_routines[irq]=0;
+}
+
+void irq_handler(struct IntrerruptRegisters *regs)
+{
+    void (* handler)(struct IntrerruptRegisters *regs);
+
+    handler = irq_routines[regs->int_no - 32];
+
+    if(handler)
+    {
+        handler(regs);
+    }
+
+    if(regs->int_no >= 40)
+    {
+        OutPortByte(0xA0, 0x20);
+    }
+
+    OutPortByte(0x20, 0x20);
+
 }

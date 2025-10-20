@@ -7,7 +7,7 @@ void kmain(void);
 void kmain(void)
 {
     reset();
-    print("Hello world\n");
-   // for (;;) __asm__ __volatile__("hlt");
+    print("Hello world\thello\n");
+    for (;;) __asm__ __volatile__("hlt");
 }
 
