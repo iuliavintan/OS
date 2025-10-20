@@ -53,3 +53,7 @@ void *memmove(void* dest, const void* src, size_t n){
     }
     return dest;
 }
+
+void OutPortByte(uint16_t port, uint8_t value){
+    __asm__ __volatile__ ( "outb %0, %1" : : "a"(value), "Nd"(port) );
+}

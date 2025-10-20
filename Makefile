@@ -97,7 +97,7 @@
 
 # ===================== Toolchain =====================
 # Prefer the cross toolchain; fall back to host if you must
-ASM      ?= nasm
+ASM      ?=nasm
 CC       ?=gcc
 LD       ?=ld
 OBJCOPY  ?=objcopy
