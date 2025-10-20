@@ -6,7 +6,8 @@
 struct InterruptDescriptor32 idt[256];
 struct idt_ptr_struct idt_ptr;
 
-extern void idt_flush(uint32_t);
+// extern void idt_flush(uint32_t);
+extern void idt_flush(struct idt_ptr_struct*);
 
 void init_idt() {
     idt_ptr.limit = (sizeof(struct InterruptDescriptor32) * 256) - 1;
@@ -30,6 +31,9 @@ void init_idt() {
 
     OutPortByte(0x21,0x0); //unmask all interrupts
     OutPortByte(0xA1,0x0);
+
+    //ar trebui puse astea pe 0xFF ca sa mascam toate interruptele
+    
 
 
     set_idt_gate(0 , (uint32_t)isr0 , 0x08, 0x8E);
@@ -86,14 +90,18 @@ void init_idt() {
     set_idt_gate(177, (uint32_t)isr177 , 0x08, 0x8E); // System calls
 
 
-    idt_flush((uint32_t)&idt_ptr);
+    // idt_flush((uint32_t)&idt_ptr);
+    idt_flush(&idt_ptr);
+
+    
+    
 }
 
 void set_idt_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
     idt[num].base_low = base & 0xFFFF;
     idt[num].sel = sel;
     idt[num].alwaysZero = 0;
-    idt[num].flags = flags | 0x60;
+    idt[num].flags = flags;
     idt[num].base_high = (base >> 16) & 0xFFFF;
 }
 
@@ -148,7 +156,9 @@ void *irq_routines[16] = {              //irq routines associated with our inter
     0,0,0,0,0,0,0,0
 };
 
-void irq_install_handler(int irq, void (*handler)(struct IntrerruprRegisters* r))
+//  void (*irq_routines[16])(struct InterruptRegisters *r) = {0};
+
+void irq_install_handler(int irq, void (*handler)(struct IntrerruptRegisters* r))
 {
     irq_routines[irq] = handler;
 }

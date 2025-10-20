@@ -15,9 +15,12 @@ struct idt_ptr_struct{
     uint32_t base;
 }__attribute__((packed));
 
+
+
+
 void init_idt();
 void set_idt_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags);
-
+void idt_flush(struct idt_ptr_struct*);
 void isr_handler(struct IntrerruptRegisters* regs);
 
 extern void isr0();

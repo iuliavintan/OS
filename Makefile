@@ -130,7 +130,10 @@ C_OBJS := $(C_SRCS:%.c=$(BUILDDIR)/%.o)
 
 
 # collect all ELF asm sources (except stage1)
-ASM_ELF_SRCS := $(filter-out boot/stage1.asm,$(shell find boot -type f -name '*.asm'))
+#ASM_ELF_SRCS := $(filter-out boot/stage1.asm,$(shell find boot -type f -name '*.asm'))
+# collect all ELF asm sources (except stage1)
+ASM_ELF_SRCS := $(filter-out boot/stage1.asm,$(shell find boot src -type f -name '*.asm'))
+
 
 # map "boot/foo/bar.asm" -> "build/boot/foo/bar.o"
 ASM_ELF_OBJS := $(ASM_ELF_SRCS:%.asm=$(BUILDDIR)/%.o)
