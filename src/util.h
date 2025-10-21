@@ -1,3 +1,5 @@
+#ifndef UTIL_H
+#define UTIL_H
 #include <stddef.h>
 
 size_t strlen(const char *str);
@@ -18,7 +20,7 @@ uint8_t InPortByte(uint16_t port);
 // };
 
 typedef struct IntrerruptRegisters {
-    uint32_t cr2;                     /* topmost we pushed */
+   // uint32_t cr2;                     /* topmost we pushed */
 
     /* pusha order (top -> bottom): */
     uint32_t eax;
@@ -39,4 +41,7 @@ typedef struct IntrerruptRegisters {
     /* pushed at entry (for NOERR we pushed dummy 0): */
     uint32_t int_no;
     uint32_t err_code;
-} IntrerruptRegisters;
+}__attribute__((packed));
+
+
+#endif

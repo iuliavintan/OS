@@ -29,7 +29,7 @@ void init_idt() {
     OutPortByte(0x21,0x01); //set 8086 mode
     OutPortByte(0xA1,0x01);
 
-    OutPortByte(0x21,0xFF); //unmask all interrupts
+    OutPortByte(0x21,0xFD); //unmask all interrupts
     OutPortByte(0xA1,0xFF);
 
     //ar trebui puse astea pe 0xFF ca sa mascam toate interruptele
@@ -188,3 +188,37 @@ void irq_handler(struct IntrerruptRegisters *regs)
     OutPortByte(0x20, 0x20);
 
 }
+
+
+uint8_t kb_status(void) { return InPortByte(0x64); }
+volatile uint32_t keyboard_irq_count = 0;
+
+void keyboard_handler(struct IntrerruptRegisters *r) {
+    (void)r;
+    while (kb_status() & 1) {
+        (void)InPortByte(0x60);  // read & drop scancode (store if you want)
+    }
+    keyboard_irq_count++;
+}
+
+void idt_enable_keyboard(void) {
+    /* Register handler BEFORE unmasking */
+    irq_install_handler(1, keyboard_handler);
+
+    /* Unmask only IRQ1 (keyboard) on master PIC; keep slave masked */
+    OutPortByte(0x21, 0xFD);  // 1111 1101b -> enable IRQ1, others masked
+    OutPortByte(0xA1, 0xFF);  // mask all on slave
+}
+
+// void keyboard_handler(struct IntrerruptRegisters* r) {
+//     (void)r;
+//     uint8_t sc = InPortByte(0x60);   // <-- drain the scancode to clear OBF
+//     //print it
+//     char buf[2];
+//     buf[0] = sc;
+//     buf[1] = 0;
+//     print(buf);
+//     // (optional) buffer it / print it
+//     // send EOI is already done by your common irq_handler
+// }
+
