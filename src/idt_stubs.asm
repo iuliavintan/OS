@@ -157,7 +157,7 @@
 
 
 section .text
-bits 32
+[BITS 32]
 
 ; ---- lidt helper ----
 global idt_flush

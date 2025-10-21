@@ -145,7 +145,7 @@ STAGE2_ELF := $(BUILDDIR)/stage2.elf
 STAGE2_BIN := $(BINDIR)/stage2.bin
 
 # ===================== Flags =====================
-CFLAGS   := -m32 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie -O2 -Wall -Wextra $(C_INCLUDES)
+CFLAGS   := -m32 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie -O2 -Wall -Wextra -mno-sse -mno-sse2 -mno-mmx -msoft-float -fno-asynchronous-unwind-tables $(C_INCLUDES)
 CFLAGS   += -MMD -MP                        # auto header deps
 LDFLAGS  := -m elf_i386 -T $(LDSCRIPT)      # linker script controls layout
 

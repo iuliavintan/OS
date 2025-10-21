@@ -29,8 +29,8 @@ void init_idt() {
     OutPortByte(0x21,0x01); //set 8086 mode
     OutPortByte(0xA1,0x01);
 
-    OutPortByte(0x21,0x0); //unmask all interrupts
-    OutPortByte(0xA1,0x0);
+    OutPortByte(0x21,0xFF); //unmask all interrupts
+    OutPortByte(0xA1,0xFF);
 
     //ar trebui puse astea pe 0xFF ca sa mascam toate interruptele
     
