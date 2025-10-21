@@ -196,44 +196,68 @@ extern irq_handler
 
 ; ---- common ISR stub ----
 isr_common_stub:
-    ; save segment registers (individually)
+    pusha
     push ds
     push es
     push fs
     push gs
 
-    pusha
-
-    ; (optional) capture CR2 for page-fault diagnostics
     mov  eax, cr2
-    push eax               ; cr2
+    push eax            ; extra dword lives ABOVE the segs
 
-    ; switch to kernel data segments
-    mov  ax, 0x10          ; your kernel data selector
-    mov  ds, ax
-    mov  es, ax
-    mov  fs, ax
-    mov  gs, ax
-
-    ; pass pointer to our frame to C
-    push esp               ; arg: &frame (top = cr2)
+    push esp
     call isr_handler
-    add  esp, 4            ; pop arg
-
-    ; discard cr2
     add  esp, 4
 
-    popa
-
-    ; restore segment registers (reverse order!)
+    add  esp, 4         ; discard cr2 we added
     pop  gs
     pop  fs
     pop  es
     pop  ds
-
-    ; drop int_no + err_code we pushed/received
-    add  esp, 8
+    popa
+    add  esp, 8         ; int_no + err_code
     iretd
+
+; isr_common_stub:
+;     ; save segment registers (individually)
+;     push ds
+;     push es
+;     push fs
+;     push gs
+
+;     pusha
+
+;     ; (optional) capture CR2 for page-fault diagnostics
+;     ; mov  eax, cr2
+;     ; push eax               ; cr2
+
+
+;     ; switch to kernel data segments
+;     mov  ax, 0x10          ; your kernel data selector
+;     mov  ds, ax
+;     mov  es, ax
+;     mov  fs, ax
+;     mov  gs, ax
+
+;     ; pass pointer to our frame to C
+;     push esp               ; arg: &frame (top = cr2)
+;     call isr_handler
+;     add  esp, 4            ; pop arg
+
+;     ; discard cr2
+;     ; add  esp, 4
+
+;     popa
+
+;     ; restore segment registers (reverse order!)
+;     pop  gs
+;     pop  fs
+;     pop  es
+;     pop  ds
+
+;     ; drop int_no + err_code we pushed/received
+;     add  esp, 8
+;     iretd
 
 ; ---- common IRQ stub ----
 irq_common_stub:
@@ -243,6 +267,8 @@ irq_common_stub:
     push gs
 
     pusha
+
+   
 
     mov  ax, 0x10
     mov  ds, ax
