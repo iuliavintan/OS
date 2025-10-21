@@ -260,15 +260,15 @@ isr_common_stub:
 ;     iretd
 
 ; ---- common IRQ stub ----
+
 irq_common_stub:
+    pusha                      ; SAME ORDER as ISR path
     push ds
     push es
     push fs
     push gs
 
-    pusha
-
-   
+    ; (no CR2 here for IRQs)
 
     mov  ax, 0x10
     mov  ds, ax
@@ -280,14 +280,42 @@ irq_common_stub:
     call irq_handler
     add  esp, 4
 
-    popa
     pop  gs
     pop  fs
     pop  es
     pop  ds
+    popa
 
-    add  esp, 8
+    add  esp, 8                ; pop int_no + err_code
     iretd
+; irq_common_stub:
+;     push ds
+;     push es
+;     push fs
+;     push gs
+
+;     pusha
+
+   
+
+;     mov  ax, 0x10
+;     mov  ds, ax
+;     mov  es, ax
+;     mov  fs, ax
+;     mov  gs, ax
+
+;     push esp
+;     call irq_handler
+;     add  esp, 4
+
+;     popa
+;     pop  gs
+;     pop  fs
+;     pop  es
+;     pop  ds
+
+;     add  esp, 8
+;     iretd
 
 ; ---- exceptions 0..31 ----
 ISR_NOERR 0
