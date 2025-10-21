@@ -44,9 +44,10 @@ uint8_t InPortByte(uint16_t port);
 // }__attribute__((packed));
 
 typedef struct __attribute__((packed)) IntrerruptRegisters {
+    uint32_t cr2;               // pushed after segs
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
     uint32_t gs, fs, es, ds;
-    uint32_t cr2;               // pushed after segs
+
     uint32_t int_no, err_code;
 } IntrerruptRegisters;
 
