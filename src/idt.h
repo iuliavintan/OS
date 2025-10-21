@@ -19,6 +19,7 @@ struct idt_ptr_struct{
 
 
 
+
 void init_idt();
 void set_idt_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags);
 void idt_flush(struct idt_ptr_struct*);
@@ -27,6 +28,10 @@ void irq_install_handler(int irq, void (*handler)(struct IntrerruptRegisters* r)
 void irq_uninstall_handler(int irq);
 void irq_handler(struct IntrerruptRegisters* regs);
 void keyboard_handler(struct IntrerruptRegisters* r);
+void irq0_handler(struct IntrerruptRegisters *r);
+void irq7_handler(struct IntrerruptRegisters *r);
+void irq15_handler(struct IntrerruptRegisters *r);
+void spurious_irq_handler(struct IntrerruptRegisters *r);
 
 
 

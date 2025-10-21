@@ -169,24 +169,52 @@ void irq_uninstall_handler(int irq)
     irq_routines[irq]=0;
 }
 
+static uint8_t pic_isr_master(void){ OutPortByte(0x20, 0x0B); return InPortByte(0x20); }
+static uint8_t pic_isr_slave (void){  OutPortByte(0xA0, 0x0B); return InPortByte(0xA0); }
+
+
 void irq_handler(struct IntrerruptRegisters *regs)
 {
     void (* handler)(struct IntrerruptRegisters *regs);
 
-    handler = irq_routines[regs->int_no - 32];
+    int vec = regs->int_no;
+    int irq_no = vec - 32;
+
+    handler = irq_routines[irq_no];
+
 
     if(handler)
     {
         handler(regs);
     }
 
-    if(regs->int_no >= 40)
+    if(vec >= 40)
     {
         OutPortByte(0xA0, 0x20);
+    }
+    else if(vec == 0x27){
+         if (!(pic_isr_master() & (1 << 7))) {
+            // Spurious: DO NOT send any EOI
+            return;
+        }
+    }
+    else if(vec == 0x2F){
+         if (!(pic_isr_slave() & (1 << 7))) {
+            // Spurious: DO NOT send any EOI
+            OutPortByte(0x20, 0x20);
+            return;
+        }
     }
 
     OutPortByte(0x20, 0x20);
 
+}
+
+void irq0_handler(struct IntrerruptRegisters *r)
+{
+    (void)r;
+    OutPortByte(0x20, 0x20);
+    return;
 }
 
 
@@ -209,16 +237,4 @@ void idt_enable_keyboard(void) {
     OutPortByte(0x21, 0xFD);  // 1111 1101b -> enable IRQ1, others masked
     OutPortByte(0xA1, 0xFF);  // mask all on slave
 }
-
-// void keyboard_handler(struct IntrerruptRegisters* r) {
-//     (void)r;
-//     uint8_t sc = InPortByte(0x60);   // <-- drain the scancode to clear OBF
-//     //print it
-//     char buf[2];
-//     buf[0] = sc;
-//     buf[1] = 0;
-//     print(buf);
-//     // (optional) buffer it / print it
-//     // send EOI is already done by your common irq_handler
-// }
 
