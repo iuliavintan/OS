@@ -1,6 +1,8 @@
 #include"vga.h"
 #include"stdint.h"
-#include "idt.h"
+#include "interrupts/idt.h"
+#include "interrupts/irq.h"
+#include "interrupts/isr.h"
 #include "util.h"
 
 void kmain(void);
@@ -19,7 +21,7 @@ void kmain(void)
     //OutPortByte(0x21, InPortByte(0x21) & ~(1<<1));
     // Somewhere after init_idt() has set gates and before sti:
    // irq_install_handler(1, keyboard_handler);
-   idt_enable_keyboard();
+    idt_enable_keyboard();
     asm volatile("sti");
 
      for (;;)

@@ -113,14 +113,14 @@ DISK_SIZE := 64M
 SECTOR    := 512
 
 # Include paths
-C_INCLUDES     := -Iboot/includes -Isrc -I.
+C_INCLUDES     := -Iboot/includes -Isrc  -I.
 NASM_INCLUDES  := -Iboot/includes/ -Isrc/ -I.
 
 # Sources
 STAGE1_SRC := boot/stage1.asm
 
 # Which folders contain your C sources
-C_SRC_DIRS := src boot/includes boot
+C_SRC_DIRS := src boot/includes boot 
 
 # Find all .c files (recursive)
 C_SRCS := $(shell find $(C_SRC_DIRS) -type f -name '*.c')
