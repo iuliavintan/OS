@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "isr.h": "c",
+        "util.h": "c"
+    }
+}
