@@ -10,17 +10,11 @@ void kmain(void);
 
 void kmain(void)
 {
-     reset();
-    // print("Hello world\thello\n");
+    reset();
 
     init_idt();
     print("IDT Initialized\n");
 
-//    uint8_t mask = InPortByte(0x21) & ~(1 << 1);
-//    OutPortByte(0x21, mask);
-    //OutPortByte(0x21, InPortByte(0x21) & ~(1<<1));
-    // Somewhere after init_idt() has set gates and before sti:
-   // irq_install_handler(1, keyboard_handler);
     idt_enable_keyboard();
     initTimer();
 

@@ -66,13 +66,57 @@ void irq0_handler(struct IntrerruptRegisters *r)
 }
 static uint8_t kb_status(void) { return InPortByte(0x64); }
 volatile uint32_t keyboard_irq_count = 0;
+// 
+// void irq1_handler(struct IntrerruptRegisters *r) {
+    // (void)r;
+    // while (kb_status() & 1) {
+        // (void)InPortByte(0x60);  // read & drop scancode (store if you want)
+    // }
+    // keyboard_irq_count++;
+// }
 
+
+unsigned char scancode_to_ascii[128] = {
+    0,  27, '1', '2', '3', '4', '5', '6', 
+    '7', '8', '9', '0', '-', '=', '\b', /* Backspace */
+    '\t', /* Tab */
+    'q', 'w', 'e', 'r', 
+    't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', /* Enter key */
+    0, /* Control */
+    'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',
+    0, /* Left shift */
+    '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 
+    0, /* Right shift */
+    '*',
+    0, /* Alt */
+    ' ', /* Space bar */
+    0, /* Caps lock */
+    /* restul tastei funcționale F1-F10 etc le poți lăsa 0 */
+};
+
+boolean caps_lock = 0;
+boolean shift_pressed = 0;
 void irq1_handler(struct IntrerruptRegisters *r) {
     (void)r;
     while (kb_status() & 1) {
-        (void)InPortByte(0x60);  // read & drop scancode (store if you want)
+        uint8_t sc = InPortByte(0x60);
+        if (!(sc & 0x80)) {  // apăsare, nu eliberare
+            if( sc == 0x3A ){
+                caps_lock= ~caps_lock;
+                char c = scancode_to_ascii[sc];
+            }
+            else if( )
+            else{
+                char c = scancode_to_ascii[sc]; 
+                if(caps_lock) c = c - 32;   
+                if (c)
+                    print(&c);
+            }
+        }
     }
     keyboard_irq_count++;
+
+    OutPortByte(0x20, 0x20);
 }
 
 void idt_enable_keyboard(void) {
