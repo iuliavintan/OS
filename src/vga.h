@@ -31,7 +31,7 @@ void putc(char c);
 void set();
 void disable_cursor();
 void update_cursor();
-void get_cursor_position(void);
+void get_cursor_position(int *x, int *y);
 void kprint(const char *s);
 
 #endif

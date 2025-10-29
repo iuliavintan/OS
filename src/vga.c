@@ -56,6 +56,7 @@ void new_line()
     }
     cursor_y+=1;
     cursor_x = 0;
+    update_cursor();
 }
 
 void scroll_up()
@@ -73,18 +74,17 @@ void scroll_up()
         vga[(vga_height-1)*vga_width+x]=' ' | currentColour;
     }
 }
-
-void print(const char *s)
-{
-    while(*s)
-    {
-        switch(*s)
+static void kputc(char c, uint16_t currentColour){
+    switch(c)
         {
             case'\n':
                 new_line();
                 break;
             case '\r':
                 column=0;
+                cursor_x = 0;
+                cursor_y = line;
+                update_cursor();
                 break;
             case '\t':
                 if(column==vga_width)
@@ -97,59 +97,44 @@ void print(const char *s)
                     vga[line*vga_width + (column++)] = ' ' | currentColour;
                     tabLen--;
                 } 
+                cursor_x = column;
+                cursor_y = line;
+                update_cursor();
                 break;
+            case '\b':
+                if( column > 0 ){
+                    column--;
+                    vga[line * vga_width + column] = ' ' | currentColour;
+                    cursor_x = column;
+                    cursor_y = line;
+                    update_cursor();
+                }
+                break;
+
             default:
                 if(column == vga_width)
                 {
                     new_line();
 
                 }
-                vga[line*vga_width + (column++)] = *s | currentColour;
+                vga[line*vga_width + (column++)] = c | currentColour;
+                cursor_x = column;
+                cursor_y = line;
+                update_cursor();
                 break;
         }
-        s++;
-    }
-    size_t len = strlen(&(*s));
-    cursor_x += (len);
+}
+
+
+void print(const char *s)
+{
+    while( *s) { putc(*s++);}
+               
 }
 
 void kprint(const char *s)
 {
-  while(*s)
-    {
-        switch(*s)
-        {
-            case'\n':
-                new_line();
-                break;
-            case '\r':
-                column=0;
-                break;
-            case '\t':
-                if(column==vga_width)
-                {
-                    new_line();
-                }
-                uint16_t tabLen = 4 - (column % 4); //
-                while(tabLen)
-                {
-                    vga[line*vga_width + (column++)] = ' ' | currentColour_kern;
-                    tabLen--;
-                } 
-                break;
-            default:
-                if(column == vga_width)
-                {
-                    new_line();
-
-                }
-                vga[line*vga_width + (column++)] = *s | currentColour_kern;
-                break;
-        }
-        s++;
-    }
-    size_t len = strlen(&(*s));
-    cursor_x += (len);
+    while(*s){ kputc((*s++),currentColour_kern);}
 }
 
 void putc(char c)
@@ -161,6 +146,9 @@ void putc(char c)
                 break;
             case '\r':
                 column=0;
+                cursor_x = 0;
+                cursor_y = line;
+                update_cursor();
                 break;
             case '\t':
                 if(column==vga_width)
@@ -173,7 +161,20 @@ void putc(char c)
                     vga[line*vga_width + (column++)] = ' ' | currentColour;
                     tabLen--;
                 } 
+                cursor_x = column;
+                cursor_y = line;
+                update_cursor();
                 break;
+            case '\b':
+                if( column > 0 ){
+                    column--;
+                    vga[line * vga_width + column] = ' ' | currentColour;
+                    cursor_x = column;
+                    cursor_y = line;
+                    update_cursor();
+                }
+                break;
+
             default:
                 if(column == vga_width)
                 {
@@ -181,12 +182,12 @@ void putc(char c)
 
                 }
                 vga[line*vga_width + (column++)] = c | currentColour;
+                cursor_x = column;
+                cursor_y = line;
+                update_cursor();
                 break;
         }
-    cursor_x++;
 }
-
-
 void disable_cursor()
 {
 	OutPortByte(0x3D4, 0x0A);
@@ -201,14 +202,14 @@ void update_cursor()
 	OutPortByte(0x3D4, 0x0E);
 	OutPortByte(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
 }
-void get_cursor_position(void)
+void get_cursor_position(int *x, int *y)
 {
     uint16_t pos = 0;
     OutPortByte(0x3D4, 0x0F);
     pos |= InPortByte(0x3D5);
     OutPortByte(0x3D4, 0x0E);
     pos |= ((uint16_t)InPortByte(0x3D5)) << 8;
-    cursor_y = pos / vga_width;
-    cursor_x = pos % vga_width;
+    *y = pos / vga_width;
+    *x = pos % vga_width;
     //return pos;
 }

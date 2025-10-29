@@ -147,26 +147,22 @@ void irq1_handler(struct IntrerruptRegisters *r) {
                     default:
                         break;
                 }
-                if (c){
+                if (c)
                     putc(c);
-                    update_cursor();
-                }
+                
             }
             else if( caps_lock  ){
                 char c = scancode_to_ascii[keycode]; 
                 if(!shift_pressed) 
                     c = c - 32;   
-                if (c){
+                if (c)
                     putc(c);
-                    update_cursor();
-                }
+                
             }
             else{
                 char c = scancode_to_ascii[keycode];
-                if (c){
+                if (c)
                     putc(c);
-                    update_cursor();
-                }
             }
         }
     }
