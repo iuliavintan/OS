@@ -9,6 +9,9 @@ const uint16_t defaultColour = (COLOUR8_LIGHT_GREY << 8) | (COULOUR8_MANGENTA <<
 uint16_t currentColour = defaultColour; //variable in case we want to change the colour
 
 
+const uint16_t defaultColour_kern = (COLOUR8_LIGHT_BLUE << 8) | (COLOUR8_BLACK<12);
+uint16_t currentColour_kern = defaultColour_kern; //variable in case we want to change the colour
+
 //initialises the screen
 void reset()
 {
@@ -23,7 +26,18 @@ void reset()
             vga[y *vga_width + x] = ' ' | defaultColour;
         }
     }
+}
 
+void set(){
+    line=0;
+    column=0;
+    currentColour_kern=defaultColour_kern;
+
+        for(uint16_t x=0; x<vga_width; x++)
+        {
+            vga[vga_width + x] = ' ' | defaultColour_kern;
+        }
+    
 }
 
 void new_line()
@@ -92,6 +106,44 @@ void print(const char *s)
         }
         s++;
     }
+}
+
+void kprint(const char *s)
+{
+  while(*s)
+    {
+        switch(*s)
+        {
+            case'\n':
+                new_line();
+                break;
+            case '\r':
+                column=0;
+                break;
+            case '\t':
+                if(column==vga_width)
+                {
+                    new_line();
+                }
+                uint16_t tabLen = 4 - (column % 4); //
+                while(tabLen)
+                {
+                    vga[line*vga_width + (column++)] = ' ' | currentColour_kern;
+                    tabLen--;
+                } 
+                break;
+            default:
+                if(column == vga_width)
+                {
+                    new_line();
+
+                }
+                vga[line*vga_width + (column++)] = *s | currentColour_kern;
+                break;
+        }
+        s++;
+    }
+
 }
 
 void putc(char c){

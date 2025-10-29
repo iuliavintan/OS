@@ -28,5 +28,7 @@ void scroll_up();
 void new_line();
 void reset();
 void putc(char c);
+void set();
+void kprint(const char *s);
 
 #endif

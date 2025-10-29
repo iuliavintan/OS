@@ -33,7 +33,7 @@ irq%1:
 %endmacro
 
 
-extern isr_handler
+extern isr_dispatch
 extern irq_handler
 
 isr_common_stub:
@@ -47,7 +47,7 @@ isr_common_stub:
     push eax            ; extra dword lives ABOVE the segs
 
     push esp
-    call isr_handler
+    call isr_dispatch
     add  esp, 4
 
     add  esp, 4         ; discard cr2 we added
