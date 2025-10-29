@@ -30,8 +30,9 @@ void reset();
 void putc(char c);
 void set();
 void disable_cursor();
-void update_cursor();
-void get_cursor_position(int *x, int *y);
+void update_cursor(uint16_t cursor_x, uint16_t cursor_y);
+void get_cursor_position(uint16_t *x, uint16_t *y);
 void kprint(const char *s);
+void deletec(uint16_t *cursor_x, uint16_t *cursor_y);
 
 #endif

@@ -9,7 +9,7 @@ uint16_t *const vga = (uint16_t*const) 0xB8000; //sets location to the video mem
 const uint16_t defaultColour = (COLOUR8_LIGHT_GREY << 8) | (COULOUR8_MANGENTA <<12);
 uint16_t currentColour = defaultColour; //variable in case we want to change the colour
 
-int cursor_x, cursor_y;
+uint16_t cursor_x, cursor_y;
 const uint16_t defaultColour_kern = (COLOUR8_LIGHT_BLUE << 8) | (COLOUR8_BLACK<<12);
 uint16_t currentColour_kern = defaultColour_kern; //variable in case we want to change the colour
 
@@ -56,7 +56,7 @@ void new_line()
     }
     cursor_y+=1;
     cursor_x = 0;
-    update_cursor();
+    update_cursor(cursor_x,cursor_y);
 }
 
 void scroll_up()
@@ -74,7 +74,19 @@ void scroll_up()
         vga[(vga_height-1)*vga_width+x]=' ' | currentColour;
     }
 }
+void deletec(uint16_t *column, uint16_t *line){
+    if( column > 0 ){
+        (*column)--;
+        vga[*line * vga_width + *column] = ' ' | currentColour;
+        cursor_x = *column;
+        cursor_y = *line;
+        update_cursor(cursor_x,cursor_y);
+    }
+}
 static void kputc(char c, uint16_t currentColour){
+    get_cursor_position(&cursor_x,&cursor_y);
+    column = cursor_x;
+    line = cursor_y;
     switch(c)
         {
             case'\n':
@@ -84,7 +96,7 @@ static void kputc(char c, uint16_t currentColour){
                 column=0;
                 cursor_x = 0;
                 cursor_y = line;
-                update_cursor();
+                update_cursor(cursor_x,cursor_y );
                 break;
             case '\t':
                 if(column==vga_width)
@@ -99,16 +111,10 @@ static void kputc(char c, uint16_t currentColour){
                 } 
                 cursor_x = column;
                 cursor_y = line;
-                update_cursor();
+                update_cursor(cursor_x,cursor_y);
                 break;
             case '\b':
-                if( column > 0 ){
-                    column--;
-                    vga[line * vga_width + column] = ' ' | currentColour;
-                    cursor_x = column;
-                    cursor_y = line;
-                    update_cursor();
-                }
+                deletec(&column,&line);
                 break;
 
             default:
@@ -120,7 +126,7 @@ static void kputc(char c, uint16_t currentColour){
                 vga[line*vga_width + (column++)] = c | currentColour;
                 cursor_x = column;
                 cursor_y = line;
-                update_cursor();
+                update_cursor(cursor_x,cursor_y);
                 break;
         }
 }
@@ -139,6 +145,9 @@ void kprint(const char *s)
 
 void putc(char c)
 {
+    get_cursor_position(&cursor_x,&cursor_y);
+    column = cursor_x;
+    line = cursor_y;
     switch(c)
         {
             case'\n':
@@ -148,7 +157,7 @@ void putc(char c)
                 column=0;
                 cursor_x = 0;
                 cursor_y = line;
-                update_cursor();
+                update_cursor(cursor_x,cursor_y);
                 break;
             case '\t':
                 if(column==vga_width)
@@ -163,7 +172,7 @@ void putc(char c)
                 } 
                 cursor_x = column;
                 cursor_y = line;
-                update_cursor();
+                update_cursor(cursor_x,cursor_y);
                 break;
             case '\b':
                 if( column > 0 ){
@@ -171,7 +180,7 @@ void putc(char c)
                     vga[line * vga_width + column] = ' ' | currentColour;
                     cursor_x = column;
                     cursor_y = line;
-                    update_cursor();
+                    update_cursor(cursor_x,cursor_y);
                 }
                 break;
 
@@ -184,7 +193,7 @@ void putc(char c)
                 vga[line*vga_width + (column++)] = c | currentColour;
                 cursor_x = column;
                 cursor_y = line;
-                update_cursor();
+                update_cursor(cursor_x,cursor_y);
                 break;
         }
 }
@@ -193,16 +202,18 @@ void disable_cursor()
 	OutPortByte(0x3D4, 0x0A);
 	OutPortByte(0x3D5, 0x20);
 }
-void update_cursor()
-{
-	uint16_t pos = cursor_y * vga_width + cursor_x;
+void update_cursor(uint16_t cursor_x, uint16_t cursor_y)
+{   
+    if( cursor_x >= 0 && cursor_x <= vga_width ){
+        uint16_t pos = cursor_y * vga_width + cursor_x;
 
-	OutPortByte(0x3D4, 0x0F);
-	OutPortByte(0x3D5, (uint8_t) (pos & 0xFF));
-	OutPortByte(0x3D4, 0x0E);
-	OutPortByte(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
+        OutPortByte(0x3D4, 0x0F);
+        OutPortByte(0x3D5, (uint8_t) (pos & 0xFF));
+        OutPortByte(0x3D4, 0x0E);
+        OutPortByte(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
+    }
 }
-void get_cursor_position(int *x, int *y)
+void get_cursor_position(uint16_t *x, uint16_t *y)
 {
     uint16_t pos = 0;
     OutPortByte(0x3D4, 0x0F);

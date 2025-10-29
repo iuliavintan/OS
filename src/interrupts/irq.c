@@ -100,12 +100,58 @@ boolean caps_lock = 0;
 boolean shift_pressed = 0;
 boolean left_shift_pressed = 0;
 boolean right_shift_pressed = 0;
+static uint8_t e0 = 0;
 void irq1_handler(struct IntrerruptRegisters *r) {
     (void)r;
     while (kb_status() & 1) {
         uint8_t sc = InPortByte(0x60);
+        if( sc == 0xe0) {
+            e0 = 1;
+            continue;
+        }
         boolean key_released = sc & 0x80;
         uint8_t keycode = sc & 0x7F;
+
+
+        uint16_t cursor_x, cursor_y;
+        get_cursor_position(&cursor_x,&cursor_y);
+         if (e0) {
+            if (!key_released) {
+                switch (keycode) {
+                    case 0x4B: // Left Arrow
+                        if (cursor_x > 0) cursor_x--;
+                        update_cursor(cursor_x,cursor_y);
+                        break;
+                    case 0x4D: // Right Arrow
+                        if (cursor_x < vga_width - 1) cursor_x++;
+                        update_cursor(cursor_x,cursor_y);
+                        break;
+                    case 0x48: // Up Arrow
+                       // if (cursor_y > 0) cursor_y--;
+                      //  update_cursor();
+                        break;
+                    case 0x50: // Down Arrow
+                       // if (cursor_y < vga_height - 1) cursor_y++;
+                       // update_cursor();
+                        break;
+                    case 0x47: // Home
+                        cursor_x = 0; update_cursor(cursor_x,cursor_y);
+                        break;
+                    case 0x4F: // End
+                        cursor_x = vga_width - 1; update_cursor(cursor_x,cursor_y);
+                        break;
+                    case 0x53: // Delete
+                        deletec(&cursor_x,&cursor_y);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            e0 = 0; // consume the extended state
+            continue;
+        }
+
+
         if( keycode == 0x2A){
             left_shift_pressed = !key_released;
         }
@@ -144,6 +190,8 @@ void irq1_handler(struct IntrerruptRegisters *r) {
                     case 51: c = '<'; break;
                     case 52: c = '>'; break;
                     case 53: c = '?'; break;
+                    case 75: {uint16_t a,b; get_cursor_position(&a,&b); update_cursor(a-1,b);break;}
+                    case 77: {uint16_t a,b; get_cursor_position(&a,&b); update_cursor(a+1,b);break;}
                     default:
                         break;
                 }
