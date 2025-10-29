@@ -1,5 +1,6 @@
 #include "vga.h"
 #include"stdint.h"
+#include "util.h"
 
 //current column and line i am at
 uint16_t column = 0;
@@ -8,7 +9,7 @@ uint16_t *const vga = (uint16_t*const) 0xB8000; //sets location to the video mem
 const uint16_t defaultColour = (COLOUR8_LIGHT_GREY << 8) | (COULOUR8_MANGENTA <<12);
 uint16_t currentColour = defaultColour; //variable in case we want to change the colour
 
-
+int cursor_x, cursor_y;
 const uint16_t defaultColour_kern = (COLOUR8_LIGHT_BLUE << 8) | (COLOUR8_BLACK<<12);
 uint16_t currentColour_kern = defaultColour_kern; //variable in case we want to change the colour
 
@@ -53,6 +54,8 @@ void new_line()
         scroll_up();
         column=0;
     }
+    cursor_y+=1;
+    cursor_x = 0;
 }
 
 void scroll_up()
@@ -106,6 +109,8 @@ void print(const char *s)
         }
         s++;
     }
+    size_t len = strlen(&(*s));
+    cursor_x += (len);
 }
 
 void kprint(const char *s)
@@ -143,7 +148,8 @@ void kprint(const char *s)
         }
         s++;
     }
-
+    size_t len = strlen(&(*s));
+    cursor_x += (len);
 }
 
 void putc(char c)
@@ -177,4 +183,32 @@ void putc(char c)
                 vga[line*vga_width + (column++)] = c | currentColour;
                 break;
         }
+    cursor_x++;
+}
+
+
+void disable_cursor()
+{
+	OutPortByte(0x3D4, 0x0A);
+	OutPortByte(0x3D5, 0x20);
+}
+void update_cursor()
+{
+	uint16_t pos = cursor_y * vga_width + cursor_x;
+
+	OutPortByte(0x3D4, 0x0F);
+	OutPortByte(0x3D5, (uint8_t) (pos & 0xFF));
+	OutPortByte(0x3D4, 0x0E);
+	OutPortByte(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
+}
+void get_cursor_position(void)
+{
+    uint16_t pos = 0;
+    OutPortByte(0x3D4, 0x0F);
+    pos |= InPortByte(0x3D5);
+    OutPortByte(0x3D4, 0x0E);
+    pos |= ((uint16_t)InPortByte(0x3D5)) << 8;
+    cursor_y = pos / vga_width;
+    cursor_x = pos % vga_width;
+    //return pos;
 }

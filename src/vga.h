@@ -29,6 +29,9 @@ void new_line();
 void reset();
 void putc(char c);
 void set();
+void disable_cursor();
+void update_cursor();
+void get_cursor_position(void);
 void kprint(const char *s);
 
 #endif
