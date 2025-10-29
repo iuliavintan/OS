@@ -9,7 +9,7 @@ const uint16_t defaultColour = (COLOUR8_LIGHT_GREY << 8) | (COULOUR8_MANGENTA <<
 uint16_t currentColour = defaultColour; //variable in case we want to change the colour
 
 
-const uint16_t defaultColour_kern = (COLOUR8_LIGHT_BLUE << 8) | (COLOUR8_BLACK<12);
+const uint16_t defaultColour_kern = (COLOUR8_LIGHT_BLUE << 8) | (COLOUR8_BLACK<<12);
 uint16_t currentColour_kern = defaultColour_kern; //variable in case we want to change the colour
 
 //initialises the screen
@@ -146,7 +146,8 @@ void kprint(const char *s)
 
 }
 
-void putc(char c){
+void putc(char c)
+{
     switch(c)
         {
             case'\n':

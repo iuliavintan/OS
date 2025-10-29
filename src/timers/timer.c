@@ -7,12 +7,12 @@
 #include"timer.h"
 
 uint64_t ticks;
-const uint32_t frequency = 1000;
+const uint32_t frequency = 100;
 
 void irq0on(IntrerruptRegisters *regs)
 {
     ticks+=1;
-    // print("Timer ticked!");
+    //print("Timer ticked!");
 }
 
 void initTimer()

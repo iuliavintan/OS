@@ -10,9 +10,9 @@ void kmain(void);
 
 void kmain(void)
 {
-    
+    //print("da");
     reset();
-  //  set();
+    // set();
     kprint("[KERNEL] Booting...\n");
 
     init_idt();
@@ -20,7 +20,7 @@ void kmain(void)
 
     idt_enable_keyboard();
     initTimer();
-
+    kprint("[KERNEL] PM OK, IDT OK, IRQ0 OK, IRQ1 OK\n");
     uint8_t mask = InPortByte(0x21);
     mask &= ~(1 << 0); // dezactivează masca pentru IRQ0 (timer)
     OutPortByte(0x21, mask);
