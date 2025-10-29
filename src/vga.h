@@ -27,5 +27,6 @@ void print(const char* s);
 void scroll_up();
 void new_line();
 void reset();
+void putc(char c);
 
 #endif

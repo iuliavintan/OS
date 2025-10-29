@@ -1,5 +1,6 @@
 #include "irq.h"
 #include "../util.h"
+#include "../vga.h"
 
 void *irq_routines[16] = {              //irq routines associated with our interrupt requests
     0,0,0,0,0,0,0,0,
@@ -96,26 +97,73 @@ unsigned char scancode_to_ascii[128] = {
 
 boolean caps_lock = 0;
 boolean shift_pressed = 0;
+boolean left_shift_pressed = 0;
+boolean right_shift_pressed = 0;
 void irq1_handler(struct IntrerruptRegisters *r) {
     (void)r;
     while (kb_status() & 1) {
         uint8_t sc = InPortByte(0x60);
-        if (!(sc & 0x80)) {  // apăsare, nu eliberare
-            if( sc == 0x3A ){
-                caps_lock= ~caps_lock;
-                char c = scancode_to_ascii[sc];
-            }
-            else if( )
-            else{
-                char c = scancode_to_ascii[sc]; 
-                if(caps_lock) c = c - 32;   
+        boolean key_released = sc & 0x80;
+        uint8_t keycode = sc & 0x7F;
+        if( keycode == 0x2A){
+            left_shift_pressed = !key_released;
+        }
+        else if( keycode == 0x36){
+            right_shift_pressed = !key_released;
+        }
+        else if( keycode == 0x3A ){
+            if(!key_released)
+                caps_lock= !caps_lock;
+        }
+        else if (!key_released) {  
+            shift_pressed = left_shift_pressed || right_shift_pressed;
+            if(shift_pressed){
+                // Handle shifted characters
+                char c = scancode_to_ascii[keycode];
+                if( !caps_lock )
+                    c = c - 32;
+                switch(keycode){
+                    case 2: c = '!'; break;
+                    case 3: c = '@'; break;
+                    case 4: c = '#'; break;
+                    case 5: c = '$'; break;
+                    case 6: c = '%'; break;
+                    case 7: c = '^'; break;
+                    case 8: c = '&'; break;
+                    case 9: c = '*'; break;
+                    case 10: c = '('; break;
+                    case 11: c = ')'; break;
+                    case 12: c = '_'; break;
+                    case 13: c = '+'; break;
+                    case 26: c = '{'; break;
+                    case 27: c = '}'; break;
+                    case 39: c = '"'; break;
+                    case 40: c = '\n'; break;
+                    case 43: c = '|'; break;
+                    case 51: c = '<'; break;
+                    case 52: c = '>'; break;
+                    case 53: c = '?'; break;
+                    default:
+                        break;
+                }
                 if (c)
-                    print(&c);
+                    putc(c);
+            }
+            else if( caps_lock  ){
+                char c = scancode_to_ascii[keycode]; 
+                if(!shift_pressed) 
+                    c = c - 32;   
+                if (c)
+                    putc(c);
+            }
+            else{
+                char c = scancode_to_ascii[keycode];
+                if (c)
+                    putc(c);
             }
         }
     }
     keyboard_irq_count++;
-
     OutPortByte(0x20, 0x20);
 }
 

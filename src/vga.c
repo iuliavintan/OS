@@ -93,3 +93,35 @@ void print(const char *s)
         s++;
     }
 }
+
+void putc(char c){
+    switch(c)
+        {
+            case'\n':
+                new_line();
+                break;
+            case '\r':
+                column=0;
+                break;
+            case '\t':
+                if(column==vga_width)
+                {
+                    new_line();
+                }
+                uint16_t tabLen = 4 - (column % 4); //
+                while(tabLen)
+                {
+                    vga[line*vga_width + (column++)] = ' ' | currentColour;
+                    tabLen--;
+                } 
+                break;
+            default:
+                if(column == vga_width)
+                {
+                    new_line();
+
+                }
+                vga[line*vga_width + (column++)] = c | currentColour;
+                break;
+        }
+}
