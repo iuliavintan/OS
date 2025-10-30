@@ -79,7 +79,9 @@ void deletec(uint16_t *column, uint16_t *line){
         (*column)--;
         vga[*line * vga_width + *column] = ' ' | currentColour;
         cursor_x = *column;
+        //*column = cursor_x;
         cursor_y = *line;
+        // *line = cursor_y;
         update_cursor(cursor_x,cursor_y);
     }
 }

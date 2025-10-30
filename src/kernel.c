@@ -5,6 +5,7 @@
 #include "interrupts/isr.h"
 #include "util.h"
 #include"timers/timer.h"
+#include "memory/e820.h"
 
 void kmain(void);
 
@@ -17,6 +18,12 @@ void kmain(void)
     idt_enable_keyboard();
     initTimer();
     kprint("[KERNEL] PM OK, IDT OK, IRQ0 OK, IRQ1 OK\n");
+
+    e820_map_t e820map;
+    e820map.count = *(volatile uint16_t*)(uintptr_t)E820_COUNT_PHYS;
+    e820map.entries = (e820_entry_t*)(uintptr_t)E820_ENTRIES_PHYS;
+
+    
     uint8_t mask = InPortByte(0x21);
     mask &= ~(1 << 0); // dezactivează masca pentru IRQ0 (timer)
     OutPortByte(0x21, mask);

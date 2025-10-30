@@ -1,6 +1,6 @@
- mmap_ent equ 0x9000             ; the number of entries will be stored at 0x8000
+ mmap_ent equ 0x9000             ; the number of entries will be stored at 0x9000
 do_e820:
-    mov di, 0x9004          ; Set di to 0x8004. Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
+    mov di, 0x9004          ; Set di to 0x9004. Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
 	xor ebx, ebx		; ebx must be 0 to start
 	xor bp, bp		; keep an entry count in bp
 	mov edx, 0x0534D4150	; Place "SMAP" into edx
