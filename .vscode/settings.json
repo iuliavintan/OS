@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "isr.h": "c",
-        "util.h": "c"
+        "util.h": "c",
+        "e820.h": "c",
+        "timer.h": "c"
     }
 }

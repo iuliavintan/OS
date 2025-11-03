@@ -1,6 +1,7 @@
 #include "vga.h"
 #include"stdint.h"
 #include "util.h"
+#include<stdarg.h>
 
 //current column and line i am at
 uint16_t column = 0;
@@ -133,11 +134,65 @@ static void kputc(char c, uint16_t currentColour){
         }
 }
 
+void print_decimal(int val){
+    char buff[16];
+    int i=0;
+    if(val==0){
+        putc('0');
+        return;
+    }
+    if(val<0){
+        putc('-');
+        val=-val;
+    }
+    while(val>0){
+        buff[i++]='0'+(val%10);
+        val=val/10;
+    }
+    while(i--){
+        putc(buff[i]);
+    }
+}
 
-void print(const char *s)
+
+void print(const char *s,...)
 {
-    while( *s) { putc(*s++);}
-               
+    va_list args;
+    va_start(args, s);
+
+    while( *s){
+        if(*s=='%'){
+            s++;
+            switch(*s){
+                case 'd':   //int
+                    print_decimal(va_arg(args, int));
+                    break;
+                case 'c':   //char
+                    putc((char)va_arg(args, int));
+                    break;
+                case 's': {  //string
+                    char *str = va_arg(args, char *);
+                    while(*str){
+                        putc(*str++);
+                    }
+                }
+                    break;
+                case '%':   //actual procent
+                    putc('%');
+                    break;
+                default:
+                    putc('%');
+                    putc(*s);
+                    break;
+            }
+        }
+        else{
+            putc(*s);
+        }
+        s++;
+    }
+    
+    va_end(args);
 }
 
 void kprint(const char *s)
@@ -226,3 +281,4 @@ void get_cursor_position(uint16_t *x, uint16_t *y)
     *x = pos % vga_width;
     //return pos;
 }
+

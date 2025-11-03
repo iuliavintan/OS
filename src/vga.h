@@ -23,7 +23,7 @@
 #define vga_width 80
 #define vga_height 25
 
-void print(const char* s);
+void print(const char* s,...);
 void scroll_up();
 void new_line();
 void reset();
@@ -34,5 +34,6 @@ void update_cursor(uint16_t cursor_x, uint16_t cursor_y);
 void get_cursor_position(uint16_t *x, uint16_t *y);
 void kprint(const char *s);
 void deletec(uint16_t *cursor_x, uint16_t *cursor_y);
+void print_decimal(int val);
 
 #endif
