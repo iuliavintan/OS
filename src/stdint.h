@@ -1,3 +1,6 @@
+#ifndef STDINT_T    
+#define STDINT_T
+
 typedef signed char int8_t;
 typedef unsigned char uint8_t;
 
@@ -13,3 +16,8 @@ typedef unsigned long long int uint64_t;
 typedef uint8_t boolean; //supposed to be bool?
 #define true 1
 #define false 0
+
+typedef uint32_t uintptr_t;
+typedef int32_t intptr_t;
+
+#endif

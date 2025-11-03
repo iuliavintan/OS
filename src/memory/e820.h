@@ -16,3 +16,4 @@ typedef struct{
 #define E820_ENTRIES_PHYS 0x00009004u
 
 void e820_import(void);
+uint64_t e820_get_usable_ram();

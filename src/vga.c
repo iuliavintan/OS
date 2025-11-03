@@ -154,6 +154,12 @@ void print_decimal(int val){
     }
 }
 
+void print_hex(uint32_t x) {
+    const char *hex = "0123456789abcdef";
+    putc('0'); putc('x');
+    for (int i = 7; i >= 0; --i)
+        putc(hex[(x >> (i*4)) & 0xF]);
+}
 
 void print(const char *s,...)
 {
@@ -169,6 +175,9 @@ void print(const char *s,...)
                     break;
                 case 'c':   //char
                     putc((char)va_arg(args, int));
+                    break;
+                case 'x':
+                    print_hex(va_arg(args, unsigned));
                     break;
                 case 's': {  //string
                     char *str = va_arg(args, char *);
