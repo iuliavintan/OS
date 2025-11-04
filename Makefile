@@ -192,7 +192,7 @@ $(DISK): $(STAGE1_BIN) $(STAGE2_BIN)
 	dd if=$(STAGE2_BIN) of=$(DISK) bs=$(SECTOR) seek=1 conv=notrunc
 
 run: $(DISK)
-	$(QEMU) -drive file=$(DISK),format=raw -no-reboot -no-shutdown -d int,cpu_reset
+	$(QEMU) -drive file=$(DISK),format=raw -no-reboot -no-shutdown -d int,cpu_reset -m 4G
 
 clean:
 	rm -rf $(BINDIR) $(BUILDDIR) $(DISK)

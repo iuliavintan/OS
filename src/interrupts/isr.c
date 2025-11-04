@@ -51,7 +51,7 @@ void common_isr_handler(struct IntrerruptRegisters* regs)
 
 void page_fault_handler(uint32_t err_no, uint32_t cr2_fault_addr){
     uint32_t mask = 0x0000001;
-   // kprintf("\n#PF at VA=%p  err=%08x\n", (void*)cr2_fault_addr, err_no);
+    print("\n#PF at VA=%p  err=%08x\n", (void*)cr2_fault_addr, err_no);
 
     print("Cause: ");
     if( err_no & mask){
