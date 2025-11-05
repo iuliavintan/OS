@@ -20,13 +20,13 @@ void kmain(void)
     initTimer();
     kprint("[KERNEL] PM OK, IDT OK, IRQ0 OK, IRQ1 OK\n");
     e820_import();
-   uint64_t total_ram = e820_get_usable_ram();
-   print("Total usable RAM: %d MB\n", (uint32_t)(total_ram / (1024*1024)));
+    uint64_t total_ram = e820_get_usable_ram();
+    print("Total usable RAM: %d MB\n", (uint32_t)(total_ram / (1024*1024)));
 
     pmm_init();
     print("[PMM] after init: free=%d pages (approx %d MB)\n",
-          (uint32_t)pmm_available_pages(),
-          (uint32_t)((pmm_available_pages() * PAGE_SIZE) / (1024*1024)));
+         (uint32_t)pmm_available_pages(),
+         (uint32_t)((pmm_available_pages() * PAGE_SIZE) / (1024*1024)));
 
     uint8_t mask = InPortByte(0x21);
     mask &= ~(1 << 0); // dezactivează masca pentru IRQ0 (timer)

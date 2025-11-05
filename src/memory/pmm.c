@@ -1,9 +1,8 @@
 #include "pmm.h"
 #include "../util.h"
 #include "../vga.h"
-/* Linker-provided symbols from boot/kernel.ld */
+
 extern uint8_t kernel_start, kernel_end;
-// #include "e820.h"
 typedef struct range_t{
     uint64_t start,end;
 }range_t;
