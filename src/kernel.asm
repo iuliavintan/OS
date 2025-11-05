@@ -1,4 +1,5 @@
 [BITS 32]
+section .text.boot
 global pm_entry
 extern kmain
 pm_entry:

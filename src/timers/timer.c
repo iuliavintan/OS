@@ -11,6 +11,7 @@ const uint32_t frequency = 100;
 
 void irq0on(IntrerruptRegisters *regs)
 {
+    (void)regs;
     ticks+=1;
     // print("Timer ticked!");
 }
@@ -32,5 +33,4 @@ void initTimer()
     OutPortByte(0x40, (uint8_t)((divisor >> 8 ) & 0xFF));
 
 }
-
 
