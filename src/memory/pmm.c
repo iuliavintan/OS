@@ -1,5 +1,5 @@
 #include "pmm.h"
-
+// #include "e820.h"
 typedef struct range_t{
     uint64_t start,end;
 }range_t;
@@ -15,12 +15,13 @@ static inline uint64_t align_up(uint64_t x, uint64_t page_size) {
 }
 
 static void sort_e820(){
+    e820_entry_t *entries = g_e820_map.entries;
     for(uint32_t i = 0 ; i < g_e820_map.count - 1; ++i )
     for( uint32_t j = i + 1 ; j < g_e820_map.count; ++j ){
-        if( g_e820_entries[i].base > g_e820_entries[j].base){
-            e820_entry_t tmp = g_e820_entries[i];
-            g_e820_entries[i] = g_e820_entries[j];
-            g_e820_entries[j] = tmp;
+        if( entries[i].base > entries[j].base){
+            e820_entry_t *tmp = &entries[i];
+            entries[i] = entries[j];
+            entries[j] = *tmp;
         }  
     }
 }

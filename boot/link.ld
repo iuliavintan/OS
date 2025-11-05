@@ -1,5 +1,5 @@
 OUTPUT_FORMAT(elf32-i386)
-ENTRY(pm_entry)
+ENTRY(start)
 
 SECTIONS {
     . = 0x1000;      /* echivalentul [org 0x1000] */

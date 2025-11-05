@@ -1,17 +1,18 @@
 [BITS 16]
-
+global start
 ; extern main                 ; main() in C code (boot/stage2.c)
 
 ; [org 0x1000]               ; stage-1 will load us at 0000:1000
 
 start:
     cli
+    
     mov ax, cs
     mov ds, ax
     mov es, ax
     mov ss, ax
     mov sp, 0x7c00          ;setting up a temporary stack
-    sti
+  ;  sti
  
     call a20_check
     cmp ax,1 
@@ -41,6 +42,25 @@ e820_caller:
     
 
 .after_e820:
+    mov bx, STATUS_MSG 
+    call print_string  
+    mov ax, 0x1000
+    mov es, ax
+    call load_kernel_after_stage2
+
+;     disk_read:
+;     mov si, dap ; point to disk address packet structure
+;     mov ah, 0x42            ; read sectors using LBA
+;     mov dl, [BootDrive]            ; first hard disk
+;     int 0x13
+;     jc .disk_error         ; jump if error
+;     jmp here
+
+; .disk_error:
+     
+;     jmp $
+
+here:
     jmp load_gdt
 
 ; --- A20 enabling code (safe method with fallbacks) ---
@@ -84,34 +104,20 @@ load_gdt:
     mov  eax, cr0
     or   eax, 1              ; CR0.PE = 1
     mov  cr0, eax
-    jmp  CODE32_SEL:pm_entry ; far jump flushes CS
 
+   ; %define KERNEL_ENTRY 0x00010000   ; must match kernel.ld origin
+   ; jmp dword CODE32_SEL:KERNEL_ENTRY        ; far jump into kernel
+; SECTORS equ 30
+; dap:
+;     db 0x10     ; size of this structure (16 bytes)
+;     db 0x00     ; reserved
+;     dw SECTORS        ; number of sectors to read
+;     dw 0x0000   ; memory address to load to; offset  (buffer = 0000:1000 => phys 0x1000)
+;     dw 0x0001   ; segment
+;     dq 6      ; starting LBA (here: sector right after MBR)
+; BootDrive db 0 ; to store boot drive (0x80 for first HDD, 0x00 for floppy)
 
-[BITS 32]
-global pm_entry
-extern kmain
-pm_entry:
-   cli
-    mov ax, DATA_SEL
-    mov ds, ax
-    mov es, ax         
-    mov fs, ax
-    mov gs, ax
-    mov ss, ax
-    mov ebp, 0x90000
-    mov esp, ebp
-
-
-    call kmain  
-    
-    hlt
-
-    
-
-.halt:  hlt
-        jmp .halt
 
 
 %include "msg_inc.inc"
-
-
+%include "load_kernel.inc"

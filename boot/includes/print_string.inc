@@ -1,5 +1,6 @@
 
 print_string:   
+    cli
     pusha
     mov ah, 0x0E
 .next:

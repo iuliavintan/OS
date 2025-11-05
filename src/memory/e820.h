@@ -1,3 +1,4 @@
+#pragma once
 #include "stdint.h"
 
 typedef struct{
@@ -16,8 +17,8 @@ typedef struct{
 #define E820_ENTRIES_PHYS 0x00009004u
 #define E820_MAX_ENTRIES 128
 
-e820_entry_t g_e820_entries[E820_MAX_ENTRIES];
-e820_map_t g_e820_map;
+extern e820_entry_t g_e820_entries[E820_MAX_ENTRIES];
+extern e820_map_t g_e820_map;
 
 void e820_import(void);
 uint64_t e820_get_usable_ram();

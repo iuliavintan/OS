@@ -1,195 +1,128 @@
-# # === CONFIGURARE GENERALĂ ===
-# ASM      := nasm
-# CC       := gcc
-# LD       := ld
-# OBJCOPY  := objcopy
-
-# # CC       := i686-elf-gcc      # prefer cross toolchain
-# # LD       := i686-elf-ld
-# # OBJCOPY  := i686-elf-objcopy
-
-
-# QEMU     := qemu-system-i386
-# LDSCRIPT := boot/link.ld
-
-# # === DIRECTOARE ===
-# BINDIR   := boot/bin
-# BUILDDIR := build
-# DISK     := boot/disk.img
-# DISK_SIZE := 64M
-# SECTOR    := 512
-
-# INCLUDES := -Iboot/includes/ -Isrc/ -I. 
-
-# # === SURSE ===
-# STAGE1_SRC := boot/stage1.asm
-# STAGE2_ASM := boot/stage2.asm
-# STAGE2_C   := boot/stage2.c
-# KERNEL_C   := src/kernel.c
-# KERNEL_OBJ := $(BUILDDIR)/kernel.o
-# C_SRCS := $(foreach d,$(C_SRC_DIRS),$(wildcard $(d)/*.c))
-# C_OBJS := $(C_SRCS:%=$(BUILDDIR)/%.o)
-
-
-# # === OUTPUT ===
-# STAGE1_BIN := $(BINDIR)/stage1.bin
-# STAGE2_ASM_OBJ := $(BUILDDIR)/stage2_asm.o
-# STAGE2_C_OBJ   := $(BUILDDIR)/stage2_c.o
-# STAGE2_ELF     := $(BUILDDIR)/stage2.elf
-# STAGE2_BIN     := $(BINDIR)/stage2.bin
-
-# # === FLAGS ===
-# NASMFLAGS := -f elf32 $(INCLUDES)
-# CFLAGS    := -m32 -ffreestanding -fno-builtin -nostdlib -nostartfiles -fno-pic -fno-pie -fno-stack-protector -O2 -Wall -Wextra $(INCLUDES)
-# LDFLAGS   := -m elf_i386 -T $(LDSCRIPT)
-# # === PHONY TARGETS ===
-# .PHONY: all run clean dirs
-
-# # === REGULA PRINCIPALĂ ===
-# all: run
-
-# # === CREARE DIRECTOARE ===
-# dirs:
-# 	@mkdir -p $(BINDIR) $(BUILDDIR)
-
-# # === COMPILARE ===
-# $(STAGE1_BIN): $(STAGE1_SRC) | dirs
-# 	$(ASM) -f bin $(INCLUDES) $< -o $@
-
-# $(STAGE2_ASM_OBJ): $(STAGE2_ASM) | dirs
-# 	$(ASM) $(NASMFLAGS) $< -o $@
-
-# # $(STAGE2_C_OBJ): $(STAGE2_C) | dirs
-# # 	$(CC) $(CFLAGS) -c $< -o $@
-
-# # $(KERNEL_OBJ): $(KERNEL_C) | dirs
-# # 	$(CC) $(CFLAGS) -c $< -o $@
-
-# $(BUILDDIR)/%.c.o: %.c
-# 	@mkdir -p $(dir $@)
-# 	$(CC) $(CFLAGS) -c $< -o $@
-
-# $(STAGE2_ELF): $(STAGE2_ASM_OBJ) $(C_OBJS) | dirs
-# 	$(LD) $(LDFLAGS) $^ -o $@
-
-
-# $(STAGE2_BIN): $(STAGE2_ELF)
-# 	$(OBJCOPY) -O binary $< $@
-
-# # === DISK IMAGE ===
-# $(DISK): $(STAGE1_BIN) $(STAGE2_BIN)
-# 	@truncate -s $(DISK_SIZE) $(DISK)
-# 	dd if=$(STAGE1_BIN) of=$(DISK) conv=notrunc
-# 	dd if=$(STAGE2_BIN) of=$(DISK) bs=$(SECTOR) seek=1 conv=notrunc
-
-# # === RULARE QEMU ===
-# run: $(DISK)
-# 	$(QEMU) -drive file=$(DISK),format=raw -no-reboot -no-shutdown -d int,cpu_reset
-
-# # === CURĂȚARE ===
-# clean:
-# 	rm -rf $(BINDIR) $(BUILDDIR) $(DISK)
-
-
-
-
-
-
 # ===================== Toolchain =====================
-# Prefer the cross toolchain; fall back to host if you must
-ASM      ?=nasm
-CC       ?=gcc
-LD       ?=ld
-OBJCOPY  ?=objcopy
+ASM      ?= nasm
+CC       ?= gcc
+LD       ?= ld
+OBJCOPY  ?= objcopy
 QEMU     ?= qemu-system-i386
 
-LDSCRIPT := boot/link.ld     # must have: ENTRY(pm_entry)
+LDSCRIPT := boot/link.ld     # stage2/linker (expects pm_entry)
 
 # ===================== Dirs & Files =====================
 BINDIR    := boot/bin
 BUILDDIR  := build
 DISK      := boot/disk.img
-DISK_SIZE := 64M
+DISK_SIZE := 128M
 SECTOR    := 512
 
+# ---- fixed layout: stage2 = exactly 5 sectors; kernel starts after it ----
+STAGE2_SECT := 5
+
 # Include paths
-C_INCLUDES     := -Iboot/includes -Isrc  -I.
+C_INCLUDES     := -Iboot/includes -Isrc -I.
 NASM_INCLUDES  := -Iboot/includes/ -Isrc/ -I.
 
 # Sources
 STAGE1_SRC := boot/stage1.asm
 
-# Which folders contain your C sources
-C_SRC_DIRS := src boot/includes boot 
+# Split stage2 (only files in boot/, except stage1) and kernel (everything in src/)
+STAGE2_C_SRCS   := $(shell find boot -maxdepth 1 -type f -name '*.c')
+STAGE2_ASM_SRCS := $(filter-out boot/stage1.asm,$(shell find boot -maxdepth 1 -type f -name '*.asm'))
+STAGE2_OBJS     := $(STAGE2_C_SRCS:%.c=$(BUILDDIR)/%.o) \
+                   $(STAGE2_ASM_SRCS:%.asm=$(BUILDDIR)/%.o)
 
-# Find all .c files (recursive)
-C_SRCS := $(shell find $(C_SRC_DIRS) -type f -name '*.c')
-
-# Map "path/file.c" -> "build/path/file.o"
-C_OBJS := $(C_SRCS:%.c=$(BUILDDIR)/%.o)
-
-
-# collect all ELF asm sources (except stage1)
-#ASM_ELF_SRCS := $(filter-out boot/stage1.asm,$(shell find boot -type f -name '*.asm'))
-# collect all ELF asm sources (except stage1)
-ASM_ELF_SRCS := $(filter-out boot/stage1.asm,$(shell find boot src -type f -name '*.asm'))
-
-
-# map "boot/foo/bar.asm" -> "build/boot/foo/bar.o"
-ASM_ELF_OBJS := $(ASM_ELF_SRCS:%.asm=$(BUILDDIR)/%.o)
-
+# KERNEL_C_SRCS   := $(shell find src -type f -name '*.c')
+# KERNEL_ASM_SRCS := $(shell find src -type f -name '*.asm')
+# KERNEL_OBJS     := $(KERNEL_C_SRCS:%.c=$(BUILDDIR)/%.o) \
+#                    $(KERNEL_ASM_SRCS:%.asm=$(BUILDDIR)/%.o)
 
 # Outputs
 STAGE1_BIN := $(BINDIR)/stage1.bin
 STAGE2_ELF := $(BUILDDIR)/stage2.elf
 STAGE2_BIN := $(BINDIR)/stage2.bin
+STAGE2_PAD := $(BINDIR)/stage2.padded.bin
+KERNEL_ELF := $(BUILDDIR)/kernel.elf
+KERNEL_BIN := $(BINDIR)/kernel.bin
 
 # ===================== Flags =====================
 CFLAGS   := -m32 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie -O2 -Wall -Wextra -mno-sse -mno-sse2 -mno-mmx -msoft-float -fno-asynchronous-unwind-tables $(C_INCLUDES)
-CFLAGS   += -MMD -MP                        # auto header deps
-LDFLAGS  := -m elf_i386 -T $(LDSCRIPT)      # linker script controls layout
+CFLAGS   += -MMD -MP
+LDFLAGS  := -m elf_i386 -T $(LDSCRIPT)
+
+# Kernel link flags (avoid pm_entry warning); adjust to your kernel linker later.
+KERNEL_LDFLAGS := -m elf_i386 -e kmain
 
 # ===================== Phony =====================
 .PHONY: all run clean dirs
-
 all: run
 
 # ===================== Build rules =====================
 dirs:
 	@mkdir -p $(BINDIR) $(BUILDDIR)
 
-# stage1: raw BIN
+# Stage1 (raw 512-byte bin)
 $(STAGE1_BIN): $(STAGE1_SRC) | dirs
 	$(ASM) -f bin $(NASM_INCLUDES) $< -o $@
 
-# Compile ANY .c into build/<same path>.o
+# Generic compilers
 $(BUILDDIR)/%.o: %.c | dirs
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Optional: auto header deps
-CFLAGS += -MMD -MP
--include $(C_OBJS:.o=.d)
-
-
-# any .asm (ELF) -> build/<path>.o (exclude stage1 via ASM_ELF_SRCS/OBJS)
 $(BUILDDIR)/%.o: %.asm | dirs
 	@mkdir -p $(dir $@)
 	$(ASM) -f elf32 $(NASM_INCLUDES) $< -o $@
 
-# link all objs into stage2.elf
-$(STAGE2_ELF): $(ASM_ELF_OBJS) $(C_OBJS) | dirs
-	$(LD) $(LDFLAGS) -o $@ $^
+# Stage2 (ELF -> BIN)
+# $(STAGE2_ELF): $(STAGE2_OBJS) | dirs
+# 	$(LD) $(LDFLAGS) -o $@ $^
 
-# objcopy to flat binary for writing to disk
+# $(STAGE2_BIN): $(STAGE2_ELF)
+# 	$(OBJCOPY) -O binary $< $@
+
+
+$(STAGE2_ELF): $(STAGE2_OBJS) | dirs
+	$(LD) -m elf_i386 -T boot/link.ld -o $@ $^
+
 $(STAGE2_BIN): $(STAGE2_ELF)
 	$(OBJCOPY) -O binary $< $@
 
-# disk image: 64 MB, stage1 at LBA0, stage2 at LBA1+
-$(DISK): $(STAGE1_BIN) $(STAGE2_BIN)
-	@truncate -s $(DISK_SIZE) $(DISK)
-	dd if=$(STAGE1_BIN) of=$(DISK) conv=notrunc
-	dd if=$(STAGE2_BIN) of=$(DISK) bs=$(SECTOR) seek=1 conv=notrunc
+# Pad Stage2 to EXACTLY 3 sectors (3 * 512 = 1536 B)
+$(STAGE2_PAD): $(STAGE2_BIN) | dirs
+	@sz=$$(stat -c%s "$<") || { echo "stat failed on $<"; exit 1; }; \
+	max=$$(( $(STAGE2_SECT) * $(SECTOR) )); \
+	if [ $$sz -gt $$max ]; then \
+	  echo "ERROR: stage2 ($$sz B) exceeds $(STAGE2_SECT) sectors ($$max B)"; exit 1; \
+	fi; \
+	cp "$<" "$@"; \
+	pad=$$(( $$max - $$sz )); \
+	dd if=/dev/zero bs=1 count=$$pad >> "$@" 2>/dev/null; \
+	echo "stage2 padded to $$max bytes"
+
+# Kernel (ELF -> BIN). Use a separate entry to avoid pm_entry warning.
+# Kernel sources (place kernel.asm and kernel C under src/ or kernel/)
+KERNEL_ASM_SRCS := $(shell find src -type f -name '*.asm' -o -name 'kernel.asm')
+KERNEL_C_SRCS   := $(shell find src -type f -name '*.c')
+KERNEL_OBJS     := $(KERNEL_ASM_SRCS:%.asm=$(BUILDDIR)/%.o) \
+                   $(KERNEL_C_SRCS:%.c=$(BUILDDIR)/%.o)
+
+KERNEL_ELF := $(BUILDDIR)/kernel.elf
+KERNEL_BIN := $(BINDIR)/kernel.bin
+
+$(KERNEL_ELF): $(KERNEL_OBJS) | dirs
+	$(LD) -m elf_i386 -T boot/kernel.ld -o $@ $^
+
+$(KERNEL_BIN): $(KERNEL_ELF)
+	$(OBJCOPY) -O binary $< $@
+
+
+# Disk image: [LBA0: stage1][LBA1..3: stage2.padded][LBA4..: kernel]
+$(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN)
+	@truncate -s $(DISK_SIZE) "$(DISK)"
+	dd if="$(STAGE1_BIN)" of="$(DISK)" bs=$(SECTOR) seek=0 conv=notrunc
+	dd if="$(STAGE2_PAD)" of="$(DISK)" bs=$(SECTOR) seek=1 conv=notrunc
+	@lba=$$(( 1 + $(STAGE2_SECT) )); \
+	echo "Writing kernel at LBA $$lba"; \
+	dd if="$(KERNEL_BIN)" of="$(DISK)" bs=$(SECTOR) seek=$$lba conv=notrunc
 
 run: $(DISK)
 	$(QEMU) -drive file=$(DISK),format=raw -no-reboot -no-shutdown -d int,cpu_reset -m 4G
@@ -197,6 +130,5 @@ run: $(DISK)
 clean:
 	rm -rf $(BINDIR) $(BUILDDIR) $(DISK)
 
-# include generated .d dependency files (safe if none exist)
+# Auto-deps
 -include $(C_OBJS:.o=.d)
-

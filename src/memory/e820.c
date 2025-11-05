@@ -2,10 +2,9 @@
 #include"e820.h"
 #include"../stdint.h"
 
-#define E820_MAX_ENTRIES 128
 
-e820_entry_t g_e820_entries[E820_MAX_ENTRIES];
-e820_map_t g_e820_map;
+e820_entry_t g_e820_entries[128];
+e820_map_t   g_e820_map = { g_e820_entries, 0 };
 
 void e820_import(void){
     uint32_t count = *(volatile uint32_t*)(uintptr_t)E820_COUNT_PHYS;
