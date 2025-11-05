@@ -119,7 +119,7 @@ void page_fault_handler(uint32_t err_no, uint32_t cr2_fault_addr){
 
 void isr_dispatch(struct IntrerruptRegisters* regs){
     (void)regs;
-    uint32_t err_no = regs->err_code;
+    uint32_t err_no = regs->int_no;
     switch(err_no){
         case 14: { 
            //uint32_t cr2 = read_cr2();

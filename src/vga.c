@@ -62,7 +62,7 @@ void new_line()
 
 void scroll_up()
 {
-    for(uint16_t y=0; y<vga_height; y++)
+    for(uint16_t y=1; y<vga_height; y++)
     {
         for(uint16_t x=0; x<vga_width; x++)
         {
@@ -76,7 +76,7 @@ void scroll_up()
     }
 }
 void deletec(uint16_t *column, uint16_t *line){
-    if( column > 0 ){
+    if( *column > 0 ){
         (*column)--;
         vga[*line * vga_width + *column] = ' ' | currentColour;
         cursor_x = *column;

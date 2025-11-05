@@ -19,9 +19,9 @@ static void sort_e820(){
     for(uint32_t i = 0 ; i < g_e820_map.count - 1; ++i )
     for( uint32_t j = i + 1 ; j < g_e820_map.count; ++j ){
         if( entries[i].base > entries[j].base){
-            e820_entry_t *tmp = &entries[i];
+            e820_entry_t tmp = entries[i];
             entries[i] = entries[j];
-            entries[j] = *tmp;
+            entries[j] = tmp;
         }  
     }
 }

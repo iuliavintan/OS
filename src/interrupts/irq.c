@@ -215,7 +215,7 @@ void irq1_handler(struct IntrerruptRegisters *r) {
         }
     }
     keyboard_irq_count++;
-    OutPortByte(0x20, 0x20);
+   // OutPortByte(0x20, 0x20);
 }
 
 void idt_enable_keyboard(void) {

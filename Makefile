@@ -27,8 +27,9 @@ STAGE1_SRC := boot/stage1.asm
 # Split stage2 (only files in boot/, except stage1) and kernel (everything in src/)
 STAGE2_C_SRCS   := $(shell find boot -maxdepth 1 -type f -name '*.c')
 STAGE2_ASM_SRCS := $(filter-out boot/stage1.asm,$(shell find boot -maxdepth 1 -type f -name '*.asm'))
-STAGE2_OBJS     := $(STAGE2_C_SRCS:%.c=$(BUILDDIR)/%.o) \
-                   $(STAGE2_ASM_SRCS:%.asm=$(BUILDDIR)/%.o)
+STAGE2_C_OBJS   := $(STAGE2_C_SRCS:%.c=$(BUILDDIR)/%.o)
+STAGE2_ASM_OBJS := $(STAGE2_ASM_SRCS:%.asm=$(BUILDDIR)/%.asm.o)
+STAGE2_OBJS     := $(STAGE2_C_OBJS) $(STAGE2_ASM_OBJS)
 
 # KERNEL_C_SRCS   := $(shell find src -type f -name '*.c')
 # KERNEL_ASM_SRCS := $(shell find src -type f -name '*.asm')
@@ -68,7 +69,7 @@ $(BUILDDIR)/%.o: %.c | dirs
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/%.o: %.asm | dirs
+$(BUILDDIR)/%.asm.o: %.asm | dirs
 	@mkdir -p $(dir $@)
 	$(ASM) -f elf32 $(NASM_INCLUDES) $< -o $@
 
@@ -102,8 +103,9 @@ $(STAGE2_PAD): $(STAGE2_BIN) | dirs
 # Kernel sources (place kernel.asm and kernel C under src/ or kernel/)
 KERNEL_ASM_SRCS := $(shell find src -type f -name '*.asm' -o -name 'kernel.asm')
 KERNEL_C_SRCS   := $(shell find src -type f -name '*.c')
-KERNEL_OBJS     := $(KERNEL_ASM_SRCS:%.asm=$(BUILDDIR)/%.o) \
-                   $(KERNEL_C_SRCS:%.c=$(BUILDDIR)/%.o)
+KERNEL_ASM_OBJS := $(KERNEL_ASM_SRCS:%.asm=$(BUILDDIR)/%.asm.o)
+KERNEL_C_OBJS   := $(KERNEL_C_SRCS:%.c=$(BUILDDIR)/%.o)
+KERNEL_OBJS     := $(KERNEL_ASM_OBJS) $(KERNEL_C_OBJS)
 
 KERNEL_ELF := $(BUILDDIR)/kernel.elf
 KERNEL_BIN := $(BINDIR)/kernel.bin

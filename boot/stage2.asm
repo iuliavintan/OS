@@ -1,8 +1,7 @@
 [BITS 16]
 global start
-; extern main                 ; main() in C code (boot/stage2.c)
 
-; [org 0x1000]               ; stage-1 will load us at 0000:1000
+%define KERNEL_ENTRY 0x00010000   ; matches boot/kernel.ld origin for pm_entry
 
 start:
     cli
@@ -12,6 +11,7 @@ start:
     mov es, ax
     mov ss, ax
     mov sp, 0x7c00          ;setting up a temporary stack
+    mov [BootDrive], dl     ; remember BIOS boot drive for later INT 13h calls
   ;  sti
  
     call a20_check
@@ -105,8 +105,7 @@ load_gdt:
     or   eax, 1              ; CR0.PE = 1
     mov  cr0, eax
 
-   ; %define KERNEL_ENTRY 0x00010000   ; must match kernel.ld origin
-   ; jmp dword CODE32_SEL:KERNEL_ENTRY        ; far jump into kernel
+    jmp  dword CODE32_SEL:KERNEL_ENTRY        ; far jump into kernel
 ; SECTORS equ 30
 ; dap:
 ;     db 0x10     ; size of this structure (16 bytes)
