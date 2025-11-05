@@ -72,7 +72,58 @@ static void align_pages(){
     }
 
 }
+static void dump_chunks(void){
+    print("usable_chunks_number=%x\n", (unsigned)usable_chunks_number);
+    for (uint64_t i = 0; i < usable_chunks_number; ++i){
+        uint64_t s = usable_chunks[i].start, e = usable_chunks[i].end;
+        uint64_t pages = (e - s) / PAGE_SIZE;
+        print("chunk[%x]: %x .. %x  pages=%x\n", (unsigned)i, (unsigned)s, (unsigned)e, (unsigned)pages);
+    }
+}
+
+static int validate_chunks(void){
+    int errs = 0;
+    for (uint64_t i = 0; i < usable_chunks_number; ++i){
+        uint64_t s = usable_chunks[i].start, e = usable_chunks[i].end;
+
+        if (s & (PAGE_SIZE-1)) { print("ERR: start not aligned @[%x]\n", (unsigned)i); ++errs; }
+        if (e & (PAGE_SIZE-1)) { print("ERR: end not aligned   @[%x]\n", (unsigned)i); ++errs; }
+        if (e <= s)            { print("ERR: empty/neg range   @[%x]\n", (unsigned)i); ++errs; }
+
+        if (i > 0){
+            uint64_t prev_e = usable_chunks[i-1].end;
+            if (s <= prev_e) { // must be strictly greater; we merge touch/overlap already
+                print("ERR: overlap/touch after merge between [%x] and [%x]\n", (unsigned)(i-1), (unsigned)i);
+                ++errs;
+            }
+        }
+    }
+    return errs;
+}
+
+static void chunk_chk(){
+    dump_chunks();
+    int errs = validate_chunks();
+    if (errs){
+        print("VALIDATION FAILED: %x\n", (unsigned)errs);
+        for(;;) { /* halt so you can read output */ }
+    } else {
+        print("alignment+merge OK\n");
+    }
+}
+
+static uint64_t highest_phys_addr(){
+    uint64_t max_addr = 0;
+    for(uint32_t i = 0 ; i < g_e820_map.count; ++i ){
+        uint64_t end = g_e820_map.entries[i].base + g_e820_map.entries[i].length;
+        if(end > max_addr) max_addr = end;
+    }
+    return max_addr;
+}
 
 void pmm_init(){
     align_pages();
+    //chunk_chk();
+    uint64_t highest_addr = highest_phys_addr();
+
 }

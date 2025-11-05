@@ -23,6 +23,8 @@ void kmain(void)
     uint64_t total_ram = e820_get_usable_ram();
     print("Total usable RAM: %d MB\n", (uint32_t)(total_ram / (1024*1024)));
 
+    pmm_init();
+
     uint8_t mask = InPortByte(0x21);
     mask &= ~(1 << 0); // dezactivează masca pentru IRQ0 (timer)
     OutPortByte(0x21, mask);
