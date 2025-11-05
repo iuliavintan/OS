@@ -164,10 +164,10 @@ void pmm_init(){
     total_pages = (size_t)(align_up(highest_addr, PAGE_SIZE) / PAGE_SIZE);
 
     uintptr_t k_end = (uintptr_t)&kernel_end;
-    uintptr_t bm_base = (uintptr_t)align_up((uint64_t)k_end, 0x1000);
+    uintptr_t bitmap_base = (uintptr_t)align_up((uint64_t)k_end, PAGE_SIZE);
 
     bitmap_bytes = (total_pages + 7) / 8;
-    bitmap = (uint8_t*)bm_base;
+    bitmap = (uint8_t*)bitmap_base;
     memset(bitmap, 0xFF, bitmap_bytes); /* mark all used */
     free_pages = 0;
 
@@ -182,9 +182,9 @@ void pmm_init(){
     reserve_range_bitmap(0, 0x00100000ull);
     uintptr_t k_start = (uintptr_t)&kernel_start;
     reserve_range_bitmap(k_start, (uintptr_t)&kernel_end - k_start);
-    reserve_range_bitmap((uint64_t)bm_base, (uint64_t)bitmap_bytes);
+    reserve_range_bitmap((uint64_t)bitmap_base, (uint64_t)bitmap_bytes);
 
-    print("[PMM] total=%d pages, free=%d, bitmap=%dB at %p, chunks=%d\n",
+    kprint("[PMM] total=%d pages, free=%d, bitmap=%dB at %p, chunks=%d\n",
           (uint32_t)total_pages, (uint32_t)free_pages, (uint32_t)bitmap_bytes, (void*)bitmap,
           (uint32_t)usable_chunks_number);
 }
@@ -208,7 +208,7 @@ uintptr_t pmm_alloc_page(void){
 }
 
 void pmm_free_page(uintptr_t phys_addr){
-    if(phys_addr & (PAGE_SIZE-1)) return; /* require page aligned */
+    if(phys_addr & (PAGE_SIZE-1)) return; 
     size_t idx = (size_t)(phys_addr / PAGE_SIZE);
     if(idx >= total_pages) return;
     if(bit_tst(idx)) { bit_clr(idx); free_pages++; }

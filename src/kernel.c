@@ -24,7 +24,7 @@ void kmain(void)
     print("Total usable RAM: %d MB\n", (uint32_t)(total_ram / (1024*1024)));
 
     pmm_init();
-    print("[PMM] after init: free=%d pages (approx %d MB)\n",
+    kprint("[PMM] after init: free=%d pages (approx %d MB)\n",
          (uint32_t)pmm_available_pages(),
          (uint32_t)((pmm_available_pages() * PAGE_SIZE) / (1024*1024)));
 

@@ -154,11 +154,38 @@ void print_decimal(int val){
     }
 }
 
+void kprint_decimal(int val,uint16_t currentColour){
+    char buff[16];
+    int i=0;
+    if(val==0){
+        kputc('0',currentColour);
+        return;
+    }
+    if(val<0){
+        kputc('-',currentColour);
+        val=-val;
+    }
+    while(val>0){
+        buff[i++]='0'+(val%10);
+        val=val/10;
+    }
+    while(i--){
+        kputc(buff[i],currentColour);
+    }
+}
+
 void print_hex(uint32_t x) {
     const char *hex = "0123456789abcdef";
     putc('0'); putc('x');
     for (int i = 7; i >= 0; --i)
         putc(hex[(x >> (i*4)) & 0xF]);
+}
+
+void kprint_hex(uint32_t x,uint16_t currentColour) {
+    const char *hex = "0123456789abcdef";
+    kputc('0', currentColour); kputc('x',currentColour);
+    for (int i = 7; i >= 0; --i)
+        kputc(hex[(x >> (i*4)) & 0xF],currentColour);
 }
 
 void print(const char *s,...)
@@ -204,9 +231,47 @@ void print(const char *s,...)
     va_end(args);
 }
 
-void kprint(const char *s)
+void kprint(const char *s,...)
 {
-    while(*s){ kputc((*s++),currentColour_kern);}
+    va_list args;
+    va_start(args, s);
+
+    while( *s){
+        if(*s=='%'){
+            s++;
+            switch(*s){
+                case 'd':   //int
+                    kprint_decimal(va_arg(args, int),defaultColour_kern);
+                    break;
+                case 'c':   //char
+                    kputc((char)va_arg(args, int),defaultColour_kern);
+                    break;
+                case 'x':
+                    kprint_hex(va_arg(args, unsigned),defaultColour_kern);
+                    break;
+                case 's': {  //string
+                    char *str = va_arg(args, char *);
+                    while(*str){
+                        putc(*str++);
+                    }
+                }
+                    break;
+                case '%':   //actual procent
+                    kputc('%',defaultColour_kern);
+                    break;
+                default:
+                    kputc('%',defaultColour_kern);
+                    kputc(*s,defaultColour_kern);
+                    break;
+            }
+        }
+        else{
+            kputc(*s,defaultColour_kern);
+        }
+        s++;
+    }
+    
+    va_end(args);
 }
 
 void putc(char c)
