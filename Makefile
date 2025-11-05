@@ -110,8 +110,8 @@ KERNEL_OBJS     := $(KERNEL_ASM_OBJS) $(KERNEL_C_OBJS)
 KERNEL_ELF := $(BUILDDIR)/kernel.elf
 KERNEL_BIN := $(BINDIR)/kernel.bin
 
-$(KERNEL_ELF): $(KERNEL_OBJS) | dirs
-	$(LD) -m elf_i386 -T boot/kernel.ld -o $@ $^
+$(KERNEL_ELF): $(KERNEL_OBJS) boot/kernel.ld | dirs
+	$(LD) -m elf_i386 -T boot/kernel.ld -o $@ $(filter-out boot/kernel.ld,$^)
 
 $(KERNEL_BIN): $(KERNEL_ELF)
 	$(OBJCOPY) -O binary $< $@
