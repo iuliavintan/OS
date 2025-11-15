@@ -17,35 +17,11 @@ static inline uint64_t align_up(uint64_t x, uint64_t page_size) {
     return (x + (page_size - 1)) & ~(page_size - 1);
 }
 
-/* --- Bitmap state (added in addition to chunk logic) --- */
 static uint8_t *bitmap = 0;      /* 1 bit per page: 1=used, 0=free */
 static size_t   bitmap_bytes = 0;
 static size_t   total_pages = 0;
 static size_t   free_pages  = 0;
 
-static inline void bit_set(size_t i)   { bitmap[i >> 3] |=  (1u << (i & 7)); }
-static inline void bit_clr(size_t i)   { bitmap[i >> 3] &= ~(1u << (i & 7)); }
-static inline int  bit_tst(size_t i)   { return (bitmap[i >> 3] >> (i & 7)) & 1u; }
-
-static void reserve_range_bitmap(uint64_t base, uint64_t length){
-    uint64_t s = align_down(base, PAGE_SIZE);
-    uint64_t e = align_up(base + length, PAGE_SIZE);
-    if(e <= s) return;
-    size_t first = (size_t)(s / PAGE_SIZE);
-    size_t last  = (size_t)(e / PAGE_SIZE);
-    if(last > total_pages) last = total_pages;
-    for(size_t i=first; i<last; ++i){ if(!bit_tst(i)){ bit_set(i); if(free_pages) free_pages--; } }
-}
-
-static void release_range_bitmap(uint64_t base, uint64_t length){
-    uint64_t s = align_up(base, PAGE_SIZE);
-    uint64_t e = align_down(base + length, PAGE_SIZE);
-    if(e <= s) return;
-    size_t first = (size_t)(s / PAGE_SIZE);
-    size_t last  = (size_t)(e / PAGE_SIZE);
-    if(last > total_pages) last = total_pages;
-    for(size_t i=first; i<last; ++i){ if(bit_tst(i)){ bit_clr(i); free_pages++; } }
-}
 
 static void sort_e820(){
     e820_entry_t *entries = g_e820_map.entries;
@@ -154,6 +130,55 @@ static uint64_t highest_phys_addr(){
     return max_addr;
 }
 
+
+static void bit_set(size_t i){
+    uint16_t byte = i >> 3;
+    uint8_t bit_position = i & 7;
+    uint8_t mask = (1u << bit_position);
+    bitmap[byte] |= mask;
+}
+static void bit_clr(size_t i){
+    uint16_t byte = i >> 3;
+    uint8_t bit_position = i & 7;
+    uint8_t mask = ~(1u << bit_position);
+    bitmap[byte] &= mask;
+}
+static int bit_tst(size_t i){
+    uint16_t byte = i >> 3; //which byte stores the bit
+    uint8_t bit_position = i & 7; //is the same as i % 8, tells me the pos of the bit inside the byte
+    return (bitmap[byte] >> bit_position) & 1u;
+}
+
+static void reserve_range_bitmap(uint64_t base, uint64_t length){
+    uint64_t s = align_down(base, PAGE_SIZE);
+    uint64_t e = align_up(base + length, PAGE_SIZE);
+    if(e <= s) return;
+    size_t first_page_bit = s/PAGE_SIZE;
+    size_t last_page_bit = e/PAGE_SIZE;
+    if(last_page_bit > total_pages) last_page_bit = total_pages;
+    for(size_t i = first_page_bit; i < last_page_bit; ++i ){
+        if(bit_tst(i) == 0 ){
+            bit_set(i);
+            free_pages--;
+        }
+    }
+}
+
+static void release_range_bitmap(uint64_t base, uint64_t length){
+    uint64_t s = align_up(base, PAGE_SIZE);
+    uint64_t e = align_down(base + length, PAGE_SIZE);
+    if(e <= s) return;
+    size_t first_page_bit = s/PAGE_SIZE;
+    size_t last_page_bit = e/PAGE_SIZE;
+    if(last_page_bit > total_pages) last_page_bit = total_pages;
+    for(size_t i = first_page_bit; i < last_page_bit; ++i ){
+        if(bit_tst(i) != 0 ){
+            bit_clr(i);
+            free_pages++;
+        }
+    }
+}
+
 void pmm_init(){
     /* Build your existing merged, page-aligned usable chunks */
     align_pages();
@@ -190,17 +215,15 @@ void pmm_init(){
 }
 
 uintptr_t pmm_alloc_page(void){
-    if(free_pages == 0) return 0;
-    for(size_t b=0; b<bitmap_bytes; ++b){
-        uint8_t v = bitmap[b];
-        if(v == 0xFF) continue; /* this byte is full */
-        for(int bit=0; bit<8; ++bit){
-            if(!(v & (1u<<bit))){
-                size_t idx = (b<<3) | (size_t)bit;
-                if(idx >= total_pages) break;
-                bit_set(idx);
-                if(free_pages) free_pages--;
-                return (uintptr_t)(idx * PAGE_SIZE);
+    if(free_pages == 0 ) return 0;
+    for(int byte = 0 ; byte < bitmap_bytes; ++byte){
+        if( bitmap[byte] == 0xFF ) continue; //no pages available
+        for( int bit = 0 ; bit < 8; ++bit){
+            if( bit_tst(byte*8+bit) == 0 ){
+                bit_set(byte*8+bit);
+                free_pages--;
+                int idx = byte*8 + bit;
+                return idx*PAGE_SIZE;
             }
         }
     }
@@ -208,10 +231,13 @@ uintptr_t pmm_alloc_page(void){
 }
 
 void pmm_free_page(uintptr_t phys_addr){
-    if(phys_addr & (PAGE_SIZE-1)) return; 
+    if(phys_addr & (PAGE_SIZE - 1)) return; /* must be page aligned */
     size_t idx = (size_t)(phys_addr / PAGE_SIZE);
     if(idx >= total_pages) return;
-    if(bit_tst(idx)) { bit_clr(idx); free_pages++; }
+    if(bit_tst(idx)){
+        bit_clr(idx);
+        free_pages++;
+    }
 }
 
 size_t pmm_total_pages(void){ return total_pages; }
