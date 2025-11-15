@@ -76,6 +76,8 @@ void kmain(void)
      else {
           print("VMM: resolve correctly fails after unmap\n");
      }
+     volatile uint32_t *q = (uint32_t*)test_va;
+     uint32_t x = *q;     // ar trebui să dea #PF după unmap
 
     uint8_t mask = InPortByte(0x21);
     mask &= ~(1 << 0); // dezactivează masca pentru IRQ0 (timer)
