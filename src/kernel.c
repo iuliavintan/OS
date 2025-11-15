@@ -33,7 +33,7 @@ void kmain(void)
     //test1 should print 0x000B8000
     uintptr_t phys;
      if (vmm_resolve_page(0x000B8000, &phys) == 0) {
-          kprint("VMM: VA 0x000B8000 -> PA %p\n", (void*)phys);
+          kprint("VMM: VA 0x000B8000 -> PA %x\n", (void*)phys);
      } 
      else {
           kprint("VMM: resolve failed for VGA\n");
@@ -41,17 +41,17 @@ void kmain(void)
      //test2
      uintptr_t test_va  = 0x00400000;      // 4 MiB
      uintptr_t test_pa  = pmm_alloc_page(); // ia un cadru fizic
-     kprint("VMM: test_pa = %p\n", (void*)test_pa);
+     kprint("VMM: test_pa = %x\n", (void*)test_pa);
 
      if (vmm_map_page(test_va, test_pa, VMM_FLAG_PRESENT | VMM_FLAG_RW) == 0) {
-          kprint("VMM: mapped VA %p -> PA %p\n", (void*)test_va, (void*)test_pa);
+          kprint("VMM: mapped VA %x -> PA %x\n", (void*)test_va, (void*)test_pa);
 
           uint32_t *p = (uint32_t*)test_va;
           p[0] = 0xDEADBEEF;
 
           uintptr_t resolved;
           if (vmm_resolve_page(test_va, &resolved) == 0) {
-               kprint("VMM: resolved %p -> %p, value=%x\n",
+               kprint("VMM: resolved %x -> %x, value=%x\n",
                          (void*)test_va, (void*)resolved, p[0]);
           } else {
                kprint("VMM: resolve failed for test_va\n");
@@ -71,7 +71,7 @@ void kmain(void)
 
      uintptr_t resolved2;
      if (vmm_resolve_page(test_va, &resolved2) == 0) {
-          kprint("VMM: still mapped?! %p -> %p\n", (void*)test_va, (void*)resolved2);
+          kprint("VMM: still mapped?! %x -> %x\n", (void*)test_va, (void*)resolved2);
      } 
      else {
           kprint("VMM: resolve correctly fails after unmap\n");
