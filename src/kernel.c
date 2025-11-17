@@ -8,6 +8,8 @@
 #include "memory/e820.h"
 #include "memory/pmm.h"
 #include "memory/vmm.h"
+#include "memory/kheap.h"
+
 
 void kmain(void);
 
@@ -29,6 +31,16 @@ void kmain(void)
     
     vmm_init();
     kprint("[VMM] initialized\n");
+
+    kheap_init();
+
+    void* a = kmalloc(16);
+    void* b = kmalloc(32);
+    void* c = kmalloc(1024);
+
+    print("a = %x\n", a);
+    print("b = %x\n", b);
+    print("c = %x\n", c);
 
     //test1 should print 0x000B8000
     uintptr_t phys;

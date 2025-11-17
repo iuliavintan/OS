@@ -55,7 +55,7 @@ void vmm_init(void){
     memset(kernel_pd, 0, PAGE_SIZE);
 
 
-    uintptr_t limit=16*1024*1024;  //16MiB
+    uintptr_t limit=16*1024*1024;  //16MiB  
     for(uintptr_t pa=0; pa<limit; pa+=PAGE_SIZE){
         vmm_map_page(pa, pa, VMM_FLAG_PRESENT | VMM_FLAG_RW);
     }
