@@ -1,7 +1,9 @@
 #pragma once
-#include "../stdint.h"
-#include "../stddef.h"
+#include "../utils/stdint.h"
+#include "../utils/stddef.h"
 #include "pmm.h"
+#include"../utils/stdint.h"
+#include"../utils/util.h"
 
 #define VMM_FLAG_PRESENT 0x001
 #define VMM_FLAG_RW      0x002

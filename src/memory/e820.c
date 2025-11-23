@@ -1,7 +1,4 @@
-#include"../vga.h"
 #include"e820.h"
-#include"../stdint.h"
-
 
 e820_entry_t g_e820_entries[128];
 e820_map_t   g_e820_map = { g_e820_entries, 0 };

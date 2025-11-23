@@ -1,9 +1,3 @@
-#include"../stdint.h"
-#include"../util.h"
-#include"../interrupts/idt.h"
-#include"../interrupts/irq.h"
-#include"../interrupts/isr.h"
-#include"../vga.h"
 #include"timer.h"
 
 uint64_t ticks;

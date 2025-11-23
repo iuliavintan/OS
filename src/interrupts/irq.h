@@ -1,9 +1,9 @@
 #ifndef IRQ_H
 #define IRQ_H
 
-#include "stdint.h"
-#include "../util.h"
-
+#include "../utils/stdint.h"
+#include "../utils/util.h"
+#include "../utils/vga.h"
 
 void irq_install_handler(int irq, void (*handler)(struct IntrerruptRegisters *r));
 void irq_uninstall_handler(int irq);

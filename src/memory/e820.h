@@ -1,5 +1,7 @@
 #pragma once
-#include "stdint.h"
+#include "../utils/stdint.h"
+#include"../utils/vga.h"
+#include"../utils/stdint.h"
 
 typedef struct{
     uint64_t base;

@@ -1,9 +1,6 @@
 #include"kheap.h"
-#include"pmm.h"
-#include"../util.h" 
-#include"../stdint.h"
-#include"vmm.h"
-#include"../vga.h"
+
+
 
 #define KHEAP_START 0x40000000u     //has to be page aligned (orice multiplu de 4096)
 #define KHEAP_MAX_SIZE (4*1024*1024u) //4MiB - small heap, easy to control

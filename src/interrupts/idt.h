@@ -1,7 +1,8 @@
 #ifndef IDT_H
 #define IDT_H
-#include "stdint.h"
-#include "util.h"
+#include "../utils/stdint.h"
+#include "../utils/util.h"
+#include "../utils/vga.h"
 
 struct InterruptDescriptor32 {
    uint16_t base_low;        // offset bits 0..15

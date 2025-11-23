@@ -1,6 +1,8 @@
 #pragma once
-#include "../stdint.h"
-#include "../stddef.h"
+#include "../utils/util.h"
+#include "../utils/vga.h"
+#include "../utils/stdint.h"
+#include "../utils/stddef.h"
 #include "e820.h"
 
 #define PAGE_SIZE 4096u

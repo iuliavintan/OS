@@ -1,6 +1,3 @@
-#include "stdint.h"
-#include "../util.h"
-#include "vga.h"
 #include "idt.h"
 
 struct InterruptDescriptor32 idt[256];

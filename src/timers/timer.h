@@ -1,6 +1,11 @@
 #ifndef TIMER_H
 #define TIMER_H
-#include"../util.h"
+#include"../utils/util.h"
+#include"../utils/stdint.h"
+#include"../interrupts/idt.h"
+#include"../interrupts/irq.h"
+#include"../interrupts/isr.h"
+#include"../utils/vga.h"
 
 void initTimer();
 

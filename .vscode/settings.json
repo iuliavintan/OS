@@ -3,6 +3,7 @@
         "isr.h": "c",
         "util.h": "c",
         "e820.h": "c",
-        "timer.h": "c"
+        "timer.h": "c",
+        "stdint.h": "c"
     }
 }

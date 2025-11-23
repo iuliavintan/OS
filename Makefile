@@ -18,7 +18,7 @@ SECTOR    := 512
 STAGE2_SECT := 5
 
 # Include paths
-C_INCLUDES     := -Iboot/includes -Isrc -I.
+C_INCLUDES     := -Iboot/includes -Isrc -Iutils -I.
 NASM_INCLUDES  := -Iboot/includes/ -Isrc/ -I.
 
 # Sources
@@ -99,10 +99,11 @@ $(STAGE2_PAD): $(STAGE2_BIN) | dirs
 	dd if=/dev/zero bs=1 count=$$pad >> "$@" 2>/dev/null; \
 	echo "stage2 padded to $$max bytes"
 
-# Kernel (ELF -> BIN). Use a separate entry to avoid pm_entry warning.
+ # Kernel (ELF -> BIN). Use a separate entry to avoid pm_entry warning.
 # Kernel sources (place kernel.asm and kernel C under src/ or kernel/)
 KERNEL_ASM_SRCS := $(shell find src -type f -name '*.asm' -o -name 'kernel.asm')
-KERNEL_C_SRCS   := $(shell find src -type f -name '*.c')
+UTILS_C_SRCS    := $(shell find utils -type f -name '*.c')
+KERNEL_C_SRCS   := $(shell find src -type f -name '*.c') $(UTILS_C_SRCS)
 KERNEL_ASM_OBJS := $(KERNEL_ASM_SRCS:%.asm=$(BUILDDIR)/%.asm.o)
 KERNEL_C_OBJS   := $(KERNEL_C_SRCS:%.c=$(BUILDDIR)/%.o)
 KERNEL_OBJS     := $(KERNEL_ASM_OBJS) $(KERNEL_C_OBJS)

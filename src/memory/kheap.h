@@ -1,7 +1,11 @@
 #pragma once
 
-#include "../stdint.h"
-
+#include"pmm.h"
+#include "../utils/stdint.h"
+#include"../utils/util.h" 
+#include"../utils/stdint.h"
+#include"vmm.h"
+#include"../utils/vga.h"
 
 void kheap_init(void);
 

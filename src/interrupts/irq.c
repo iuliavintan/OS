@@ -1,6 +1,5 @@
 #include "irq.h"
-#include "../util.h"
-#include "../vga.h"
+
 
 
 void *irq_routines[16] = {              //irq routines associated with our interrupt requests

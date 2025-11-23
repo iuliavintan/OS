@@ -1,8 +1,9 @@
 #ifndef ISR_H
 #define ISR_H
 
-#include "stdint.h"
-#include "../util.h"
+#include "../utils/stdint.h"
+#include "../utils/util.h"
+#include "../utils/vga.h"
 
 void isr_dispatch(struct IntrerruptRegisters* regs);
 void common_isr_handler(struct IntrerruptRegisters* regs);

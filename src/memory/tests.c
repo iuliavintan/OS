@@ -1,10 +1,4 @@
 #include "tests.h"
-#include "pmm.h"
-#include "vmm.h"
-#include "kheap.h"
-#include "../util.h"
-#include "../stdint.h"
-#include "../vga.h"
 
 void run_memory_smoke_test(void){
     void* a = kmalloc(16);

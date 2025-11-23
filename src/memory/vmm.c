@@ -1,7 +1,4 @@
 #include"vmm.h"
-#include"pmm.h"
-#include"../stdint.h"
-#include"../util.h"
 
 static uintptr_t kernel_pd_phys;
 static uint32_t *kernel_pd; 

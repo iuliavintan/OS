@@ -1,6 +1,5 @@
 #include "isr.h"
-#include "../util.h"
-#include "../vga.h"
+
 
 char * exception_messages[] = {
     "Devision By Zero",

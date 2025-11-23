@@ -1,6 +1,5 @@
 #include "pmm.h"
-#include "../util.h"
-#include "../vga.h"
+
 
 extern uint8_t kernel_start, kernel_end;
 typedef struct range_t{
