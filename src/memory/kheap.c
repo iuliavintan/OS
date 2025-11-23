@@ -212,7 +212,8 @@ static void kheap_test_assert(int cond, const char *msg){
 }
 
 static void kheap_dump_freelist(const char *label){
-    kprint("[KHEAP] %s freelist:\n", label);
+    kprint("[KERNEL] ");
+    print("From HEAP ---> %s freelist:\n", label);
     heap_block_t *blk = free_list;
     while(blk){
         kprint("  blk=%x size=%d free=%d next=%x\n", (void *)blk, blk->size, blk->free, (void *)blk->next);
@@ -221,7 +222,8 @@ static void kheap_dump_freelist(const char *label){
 }
 
 void heap_dump(){
-    kprint("[KERNEL] Dumping Heap: \n");
+    kprint("[KERNEL] ");
+    print("Dumping HEAP: \n");
     heap_block_t *blk = free_list;
     while(blk){
         kprint("  blk=%x size=%d free=%d next=%x\n", (void *)blk, blk->size, blk->free, (void *)blk->next);
@@ -236,21 +238,25 @@ void kheap_test_with_logging(void){
     void *a = kmalloc(32);
     void *b = kmalloc(64);
     void *c = kmalloc(128);
-    kprint("[KHEAP] alloc a=%x b=%x c=%x\n", a, b, c);
+    kprint("[KERNEL] ");
+    print("From HEAP ---> alloc a=%x b=%x c=%x\n", a, b, c);
     kheap_dump_freelist("after a,b,c");
 
     kfree(b);
-    kprint("[KHEAP] freed b\n");
+    kprint("[KERNEL] ");
+    print("From HEAP ---> freed b\n");
     kheap_dump_freelist("after free b");
 
     void *d = kmalloc(40);
-    kprint("[KHEAP] alloc d=%x (should reuse b)\n", d);
+    kprint("[KERNEL] ");
+    print("From HEAP ---> alloc d=%x (should reuse b)\n", d);
     kheap_dump_freelist("after d");
 
     kfree(a);
     kfree(c);
     kfree(d);
-    kprint("[KHEAP] freed a,c,d\n");
+    kprint("[KERNEL] ");
+    print("From HEAP ---> freed a,c,d\n");
     kheap_dump_freelist("after free all");
 }
 

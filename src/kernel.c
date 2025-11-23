@@ -12,7 +12,7 @@
 #include "memory/tests.h"
 
 // #define MEM_TESTS
-// #define KHEAP_TESTS
+#define KHEAP_TESTS
 // #define HEAP_DUMP
 
 void kmain(void);
@@ -21,24 +21,31 @@ void kmain(void)
 {
      reset();
      //disable_cursor();
-     kprint("[KERNEL] Booting...\n");
+     // kprint("[KERNEL] Booting...\n");
+     kprint("[KERNEL] ");
+     print("Booting...\n");
      init_idt();
      idt_enable_keyboard();
      initTimer();
-     kprint("[KERNEL] PM OK, IDT OK, IRQ0 OK, IRQ1 OK\n");
+     kprint("[KERNEL] ");
+     print("PM OK, IDT OK, IRQ0 OK, IRQ1 OK\n");
      e820_import();
      uint64_t total_ram = e820_get_usable_ram();
+     kprint("[KERNEL] ");
      print("Total usable RAM: %d MB\n", (uint32_t)(total_ram / (1024*1024)));
 
      pmm_init();
-     kprint("[KERNEL] PMM after init: free=%d pages (approx %d MB)\n",(uint32_t)pmm_available_pages(), (uint32_t)((pmm_available_pages() * PAGE_SIZE) / (1024*1024)));
+     kprint("[KERNEL] ");
+     print("PMM after init: free=%d pages (approx %d MB)\n",(uint32_t)pmm_available_pages(), (uint32_t)((pmm_available_pages() * PAGE_SIZE) / (1024*1024)));
      
      vmm_init();
-     kprint("[KERNEL] VMM initialized\n");
+     kprint("[KERNEL] ");
+     print("VMM initialized\n");
 
      kheap_init();
 
-     kprint("[KERNEL] Heap initialized\n");
+     kprint("[KERNEL] ");
+     print("Heap initialized\n");
      #ifdef MEM_TESTS
      run_memory_smoke_test();
      #endif

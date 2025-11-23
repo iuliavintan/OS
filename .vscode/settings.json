@@ -4,6 +4,7 @@
         "util.h": "c",
         "e820.h": "c",
         "timer.h": "c",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "ostream": "c"
     }
 }

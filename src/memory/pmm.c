@@ -207,8 +207,8 @@ void pmm_init(){
     uintptr_t k_start = (uintptr_t)&kernel_start;
     reserve_range_bitmap(k_start, (uintptr_t)&kernel_end - k_start);
     reserve_range_bitmap((uint64_t)bitmap_base, (uint64_t)bitmap_bytes);
-
-    kprint("[PMM] total=%d pages, free=%d, bitmap=%dB at %x, chunks=%d\n",
+    kprint("[KERNEL] ");
+    print("From PMM: total=%d pages, free=%d, bitmap=%dB at %x, chunks=%d\n",
           (uint32_t)total_pages, (uint32_t)free_pages, (uint32_t)bitmap_bytes, (void*)bitmap,
           (uint32_t)usable_chunks_number);
 }

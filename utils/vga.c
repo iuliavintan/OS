@@ -7,11 +7,11 @@
 uint16_t column = 0;
 uint16_t line = 0;
 uint16_t *const vga = (uint16_t*const) 0xB8000; //sets location to the video mem
-const uint16_t defaultColour = (COLOUR8_LIGHT_GREY << 8) | (COULOUR8_MANGENTA <<12);
+const uint16_t defaultColour = (COLOUR8_LIGHT_GREY << 8) | (COLOUR8_BLACK <<12);
 uint16_t currentColour = defaultColour; //variable in case we want to change the colour
 
 uint16_t cursor_x, cursor_y;
-const uint16_t defaultColour_kern = (COLOUR8_LIGHT_BLUE << 8) | (COLOUR8_BLACK<<12);
+const uint16_t defaultColour_kern = (COLOUR8_LIGHT_MANGENTA<< 8) | (COLOUR8_BLACK<<12);
 uint16_t currentColour_kern = defaultColour_kern; //variable in case we want to change the colour
 
 //initialises the screen
