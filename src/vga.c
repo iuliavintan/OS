@@ -252,7 +252,7 @@ void kprint(const char *s,...)
                 case 's': {  //string
                     char *str = va_arg(args, char *);
                     while(*str){
-                        putc(*str++);
+                        kputc(*str++,defaultColour_kern);
                     }
                 }
                     break;
