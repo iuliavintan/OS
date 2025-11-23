@@ -17,6 +17,7 @@ typedef uint8_t boolean; //supposed to be bool?
 #define true 1
 #define false 0
 
+#define NULL ((void*)0)
 typedef uint32_t uintptr_t;
 typedef int32_t intptr_t;
 
