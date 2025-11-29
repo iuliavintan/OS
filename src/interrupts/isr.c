@@ -50,71 +50,71 @@ void common_isr_handler(struct IntrerruptRegisters* regs)
 
 void page_fault_handler(uint32_t err_no, uint32_t cr2_fault_addr){
     uint32_t mask = 0x0000001;
-    print("\n#PF at VA=%x  err=%08x\n", (void*)cr2_fault_addr, err_no);
+    print_error ("\n#PF at VA=%x  err=%08x\n", (void*)cr2_fault_addr, err_no);
 
-    print("Cause: ");
+    print_error("Cause: ");
     if( err_no & mask){
-        print("The page fault was caused by a page-protection violation\n");
+        print_error("The page fault was caused by a page-protection violation\n");
     }
     else{
-        print("Non-present page\n");
+        print_error("Non-present page\n");
     }
-    print("Access: ");
+    print_error("Access: ");
     if( err_no & (mask << 1)){
-        print("Write\n");
+        print_error("Write\n");
     }
     else{
-        print("Read\n");
+        print_error("Read\n");
     }
-    print("From: ");
+    print_error("From: ");
 
     if( err_no & (mask << 2)){
-        print("User\n");
+        print_error("User\n");
     }
     else{
-        print("Kernel\n");
+        print_error("Kernel\n");
     }
 
-    print("ifetch= ");
+    print_error("ifetch= ");
     if( err_no & (mask << 3)){
-        print("yes\n");
+        print_error("yes\n");
     }
     else {
-        print("no\n");
+        print_error("no\n");
     }
 
-    print("reserved write= ");
+    print_error("reserved write= ");
     if(err_no & (mask << 4)){
-        print("yes\n");
+        print_error("yes\n");
     }
     else{
-        print("no\n");
+        print_error("no\n");
     }
 
-    print("protection_key= ");
+    print_error("protection_key= ");
     if(err_no & (mask << 4)){
-        print("yes\n");
+        print_error("yes\n");
     }
     else{
-        print("no\n");
+        print_error("no\n");
     }
     
-    print("shadow_stack= ");
+    print_error("shadow_stack= ");
     if(err_no & (mask << 4)){
-        print("yes\n");
+        print_error("yes\n");
     }
     else{
-        print("no\n");
+        print_error("no\n");
     }
 
-    print("Soft Guard Extensions= ");
+    print_error("Soft Guard Extensions= ");
     if(err_no & (mask << 4)){
-        print("yes\n");
+        print_error("yes\n");
     }
     else{
-        print("no\n");
+        print_error("no\n");
     }
-    kprint("PANIC: page fault, halting CPU\n");
+    print_error("PANIC: page fault, halting CPU\n");
     asm volatile("cli");
     for (;;)
         asm volatile("hlt");

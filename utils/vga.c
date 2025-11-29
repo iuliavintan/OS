@@ -230,7 +230,49 @@ void print(const char *s,...)
     
     va_end(args);
 }
-
+void print_error(const char *s,...)
+{
+    va_list args;
+    va_start(args, s);
+    uint16_t prevColour = currentColour;
+    currentColour = (COLOUR8_LIGHT_RED << 8) | (COLOUR8_BLACK <<12);
+    while( *s){
+        if(*s=='%'){
+            s++;
+            switch(*s){
+                case 'd':   //int
+                    kprint_decimal(va_arg(args, int),currentColour);
+                    break;
+                case 'c':   //char
+                    kputc((char)va_arg(args, int),currentColour);
+                    break;
+                case 'x':
+                    kprint_hex(va_arg(args, unsigned),currentColour);
+                    break;
+                case 's': {  //string
+                    char *str = va_arg(args, char *);
+                    while(*str){
+                        kputc(*str++,currentColour);
+                    }
+                }
+                    break;
+                case '%':   //actual procent
+                    kputc('%',currentColour);
+                    break;
+                default:
+                    kputc('%',currentColour);
+                    kputc(*s,currentColour);
+                    break;
+            }
+        }
+        else{
+            kputc(*s,currentColour);
+        }
+        s++;
+    }
+    currentColour = prevColour;
+    va_end(args);
+}
 void kprint(const char *s,...)
 {
     va_list args;

@@ -12,7 +12,7 @@
 #include "memory/tests.h"
 
 // #define MEM_TESTS
-#define KHEAP_TESTS
+// #define KHEAP_TESTS
 // #define HEAP_DUMP
 
 void kmain(void);

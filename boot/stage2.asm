@@ -48,17 +48,6 @@ e820_caller:
     mov es, ax
     call load_kernel_after_stage2
 
-;     disk_read:
-;     mov si, dap ; point to disk address packet structure
-;     mov ah, 0x42            ; read sectors using LBA
-;     mov dl, [BootDrive]            ; first hard disk
-;     int 0x13
-;     jc .disk_error         ; jump if error
-;     jmp here
-
-; .disk_error:
-     
-;     jmp $
 
 here:
     jmp load_gdt
@@ -106,16 +95,6 @@ load_gdt:
     mov  cr0, eax
 
     jmp  dword CODE32_SEL:KERNEL_ENTRY        ; far jump into kernel
-; SECTORS equ 30
-; dap:
-;     db 0x10     ; size of this structure (16 bytes)
-;     db 0x00     ; reserved
-;     dw SECTORS        ; number of sectors to read
-;     dw 0x0000   ; memory address to load to; offset  (buffer = 0000:1000 => phys 0x1000)
-;     dw 0x0001   ; segment
-;     dq 6      ; starting LBA (here: sector right after MBR)
-; BootDrive db 0 ; to store boot drive (0x80 for first HDD, 0x00 for floppy)
-
 
 
 %include "msg_inc.inc"

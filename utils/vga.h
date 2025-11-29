@@ -35,5 +35,6 @@ void get_cursor_position(uint16_t *x, uint16_t *y);
 void kprint(const char *s,...);
 void deletec(uint16_t *cursor_x, uint16_t *cursor_y);
 void print_decimal(int val);
+void print_error(const char *s,...);
 
 #endif
