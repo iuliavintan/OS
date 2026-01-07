@@ -10,6 +10,7 @@
 #include "memory/vmm.h"
 #include "memory/kheap.h"
 #include "memory/tests.h"
+#include "fs/fs.h"
 
 // #define MEM_TESTS
 // #define KHEAP_TESTS
@@ -24,6 +25,7 @@ void kmain(void)
      // kprint("[KERNEL] Booting...\n");
      kprint("[KERNEL] ");
      print("Booting...\n");
+    
      init_idt();
      idt_enable_keyboard();
      initTimer();
@@ -46,6 +48,7 @@ void kmain(void)
 
      kprint("[KERNEL] ");
      print("Heap initialized\n");
+
      #ifdef MEM_TESTS
      run_memory_smoke_test();
      #endif
@@ -60,6 +63,22 @@ void kmain(void)
      mask &= ~(1 << 0); // dezactivează masca pentru IRQ0 (timer)
      OutPortByte(0x21, mask);
      asm volatile("sti");
+
+     if (fs_init() == 0) {
+         uint32_t sectors = 0;
+         if (fs_load_file("CALC    ", (void *)0x300000, 128, &sectors) == 0) {
+             kprint("[KERNEL] ");
+             print("FS loaded CALC (%d sectors)\n", sectors);
+             void (*calc_entry)(void) = (void (*)(void))0x300000;
+             calc_entry();
+         } else {
+             kprint("[KERNEL] ");
+             print("FS load failed\n");
+         }
+     } else {
+         kprint("[KERNEL] ");
+         print("FS init failed\n");
+     }
 
      for (;;)
         asm volatile("hlt");

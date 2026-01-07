@@ -3,7 +3,7 @@ OUTPUT_FORMAT(elf32-i386)
 ENTRY(pm_entry)
 SECTIONS {
   kernel_start = .;
-  . = 0x00010000;             /* kernel runs from 0x10000 */
+  . = 0x00020000;             /* kernel runs from 0x20000 */
   .text : {
     *(.text.boot)
     *(.text*)

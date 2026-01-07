@@ -1,6 +1,7 @@
 # ===================== Toolchain =====================
 ASM      ?= nasm
 CC       ?= gcc
+HOSTCC   ?= gcc
 LD       ?= ld
 OBJCOPY  ?= objcopy
 QEMU     ?= qemu-system-i386
@@ -43,10 +44,16 @@ STAGE2_BIN := $(BINDIR)/stage2.bin
 STAGE2_PAD := $(BINDIR)/stage2.padded.bin
 KERNEL_ELF := $(BUILDDIR)/kernel.elf
 KERNEL_BIN := $(BINDIR)/kernel.bin
+FS_TABLE   := $(BINDIR)/fs.bin
+MKFS_TOOL  := $(BUILDDIR)/utils/mkfs
+CALC_ELF   := $(BUILDDIR)/calc.elf
+CALC_BIN   := $(BINDIR)/calc.bin
 
 # ===================== Flags =====================
 CFLAGS   := -m32 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie -O2 -Wall -Wextra -mno-sse -mno-sse2 -mno-mmx -msoft-float -fno-asynchronous-unwind-tables $(C_INCLUDES)
 CFLAGS   += -MMD -MP
+HOSTCFLAGS := -O2 -Wall -Wextra
+USER_CFLAGS := -m32 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie -O2 -Wall -Wextra -nostdlib -nostartfiles -Iutils -I.
 LDFLAGS  := -m elf_i386 -T $(LDSCRIPT)
 
 # Kernel link flags (avoid pm_entry warning); adjust to your kernel linker later.
@@ -99,10 +106,10 @@ $(STAGE2_PAD): $(STAGE2_BIN) | dirs
 	dd if=/dev/zero bs=1 count=$$pad >> "$@" 2>/dev/null; \
 	echo "stage2 padded to $$max bytes"
 
- # Kernel (ELF -> BIN). Use a separate entry to avoid pm_entry warning.
+# Kernel (ELF -> BIN). Use a separate entry to avoid pm_entry warning.
 # Kernel sources (place kernel.asm and kernel C under src/ or kernel/)
 KERNEL_ASM_SRCS := $(shell find src -type f -name '*.asm' -o -name 'kernel.asm')
-UTILS_C_SRCS    := $(shell find utils -type f -name '*.c')
+UTILS_C_SRCS    := $(shell find utils -type f -name '*.c' ! -name 'mkfs.c')
 KERNEL_C_SRCS   := $(shell find src -type f -name '*.c') $(UTILS_C_SRCS)
 KERNEL_ASM_OBJS := $(KERNEL_ASM_SRCS:%.asm=$(BUILDDIR)/%.asm.o)
 KERNEL_C_OBJS   := $(KERNEL_C_SRCS:%.c=$(BUILDDIR)/%.o)
@@ -117,15 +124,38 @@ $(KERNEL_ELF): $(KERNEL_OBJS) boot/kernel.ld | dirs
 $(KERNEL_BIN): $(KERNEL_ELF)
 	$(OBJCOPY) -O binary $< $@
 
+# User program (calc)
+$(BUILDDIR)/src/user/%.o: src/user/%.c | dirs
+	@mkdir -p $(dir $@)
+	$(CC) $(USER_CFLAGS) -c $< -o $@
 
-# Disk image: [LBA0: stage1][LBA1..3: stage2.padded][LBA4..: kernel]
-$(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN)
+$(CALC_ELF): $(BUILDDIR)/src/user/calc.o | dirs
+	$(LD) -m elf_i386 -Ttext 0x300000 -e calc_main -o $@ $^
+
+$(CALC_BIN): $(CALC_ELF)
+	$(OBJCOPY) -O binary $< $@
+
+# Host tool to build filesystem table
+$(MKFS_TOOL): utils/mkfs.c | dirs
+	@mkdir -p $(dir $@)
+	$(HOSTCC) $(HOSTCFLAGS) $< -o $@
+
+# Filesystem tables (3 sectors starting at LBA1)
+$(FS_TABLE): $(STAGE2_PAD) $(KERNEL_BIN) $(CALC_BIN) $(MKFS_TOOL) | dirs
+	@$(MKFS_TOOL) --out "$@" --stage2 "$(STAGE2_PAD)" --kernel "$(KERNEL_BIN)" --prog "$(CALC_BIN)"
+
+# Disk image: [LBA0: stage1][LBA1: fs hdr][LBA2: FAT][LBA3: root][LBA4..: data]
+$(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(CALC_BIN) $(FS_TABLE)
 	@truncate -s $(DISK_SIZE) "$(DISK)"
 	dd if="$(STAGE1_BIN)" of="$(DISK)" bs=$(SECTOR) seek=0 conv=notrunc
-	dd if="$(STAGE2_PAD)" of="$(DISK)" bs=$(SECTOR) seek=1 conv=notrunc
-	@lba=$$(( 1 + $(STAGE2_SECT) )); \
+	dd if="$(FS_TABLE)" of="$(DISK)" bs=$(SECTOR) seek=1 conv=notrunc
+	dd if="$(STAGE2_PAD)" of="$(DISK)" bs=$(SECTOR) seek=4 conv=notrunc
+	@lba=$$(( 4 + $(STAGE2_SECT) )); \
 	echo "Writing kernel at LBA $$lba"; \
 	dd if="$(KERNEL_BIN)" of="$(DISK)" bs=$(SECTOR) seek=$$lba conv=notrunc
+	@plba=$$(( 4 + $(STAGE2_SECT) + ($$(stat -c%s "$(KERNEL_BIN)") + 511) / 512 )); \
+	echo "Writing calc at LBA $$plba"; \
+	dd if="$(CALC_BIN)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc
 
 run: $(DISK)
 	$(QEMU) -drive file=$(DISK),format=raw -no-reboot -no-shutdown -d int,cpu_reset -m 4G

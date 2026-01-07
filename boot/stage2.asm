@@ -1,7 +1,7 @@
 [BITS 16]
 global start
 
-%define KERNEL_ENTRY 0x00010000   ; matches boot/kernel.ld origin for pm_entry
+%define KERNEL_ENTRY 0x00020000   ; matches boot/kernel.ld origin for pm_entry
 
 start:
     cli
@@ -42,11 +42,20 @@ e820_caller:
     
 
 .after_e820:
-    mov bx, STATUS_MSG 
-    call print_string  
-    mov ax, 0x1000
+    ; mov bx, STATUS_MSG 
+    ; call print_string  
+    call fs_load_tables
+    jc fs_fail
+    mov si, kernel_name
+    call fs_find_entry
+    jc fs_fail
+    mov [kernel_cluster], ax
+    mov ax, 0x2000
     mov es, ax
-    call load_kernel_after_stage2
+    mov ax, [kernel_cluster]
+    xor bx, bx
+    call fs_load_chain
+    jc fs_fail
 
 
 here:
@@ -99,3 +108,11 @@ load_gdt:
 
 %include "msg_inc.inc"
 %include "load_kernel.inc"
+%include "fs.inc"
+
+fs_fail:
+    hlt
+    jmp $
+
+kernel_name db "KERNEL  "
+kernel_cluster dw 0

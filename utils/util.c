@@ -64,3 +64,9 @@ uint8_t InPortByte(uint16_t port) {
     __asm__ __volatile__("inb %1, %0" : "=a"(val) : "Nd"(port));
     return val;
 }
+
+uint16_t InPortWord(uint16_t port) {
+    uint16_t val;
+    __asm__ __volatile__("inw %1, %0" : "=a"(val) : "Nd"(port));
+    return val;
+}
