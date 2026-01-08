@@ -24,5 +24,6 @@ process_t *process_exec(const char *name8);
 void process_kill(uint32_t pid);
 void process_list(void);
 void process_on_tick(task_t *current);
+void process_reap_task(task_t *t);
 
 #endif

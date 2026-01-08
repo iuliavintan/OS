@@ -17,11 +17,11 @@ static inline uint32_t vmm_pt_index(uintptr_t virtual_addr){
 }
 
 
-int vmm_map_page(uintptr_t virtual_addr, uintptr_t physical_addr, uint32_t flags){
+int vmm_map_page_pd(uint32_t *pd, uintptr_t virtual_addr, uintptr_t physical_addr, uint32_t flags){
     uint32_t pdi=vmm_pd_index(virtual_addr);
     uint32_t pti=vmm_pt_index(virtual_addr);
 
-    uint32_t pde=kernel_pd[pdi];
+    uint32_t pde=pd[pdi];
     uint32_t *pt;
 
     if(!(pde & VMM_FLAG_PRESENT)){
@@ -35,13 +35,13 @@ int vmm_map_page(uintptr_t virtual_addr, uintptr_t physical_addr, uint32_t flags
         if (flags & VMM_FLAG_USER) {
             pde_flags |= VMM_FLAG_USER;
         }
-        kernel_pd[pdi]=(pt_phys & 0xFFFFF000u) | pde_flags;
+        pd[pdi]=(pt_phys & 0xFFFFF000u) | pde_flags;
     }
     else{
         uintptr_t pt_phys = pde & 0xFFFFF000u;
         pt=(uint32_t *)pt_phys;
         if ((flags & VMM_FLAG_USER) && !(pde & VMM_FLAG_USER)) {
-            kernel_pd[pdi] = pde | VMM_FLAG_USER;
+            pd[pdi] = pde | VMM_FLAG_USER;
         }
     }
 
@@ -51,6 +51,10 @@ int vmm_map_page(uintptr_t virtual_addr, uintptr_t physical_addr, uint32_t flags
     asm volatile("invlpg (%0)" :: "r"(virtual_addr) : "memory"); 
 
     return 0;
+}
+
+int vmm_map_page(uintptr_t virtual_addr, uintptr_t physical_addr, uint32_t flags){
+    return vmm_map_page_pd(kernel_pd, virtual_addr, physical_addr, flags);
 }
 
 void vmm_init(void){
@@ -70,6 +74,25 @@ void vmm_init(void){
     asm volatile("mov %%cr0, %0" : "=r"(cr0));
     cr0|=0x80000000u; //set the paging bit
     asm volatile("mov %0, %%cr0" :: "r"(cr0) : "memory");
+}
+
+uint32_t *vmm_create_user_pd(uintptr_t *pd_phys_out) {
+    uintptr_t pd_phys = pmm_alloc_page();
+    if (pd_phys == 0) return NULL;
+    uint32_t *pd = (uint32_t *)pd_phys;
+    memcpy(pd, kernel_pd, PAGE_SIZE);
+    if (pd_phys_out) {
+        *pd_phys_out = pd_phys;
+    }
+    return pd;
+}
+
+uintptr_t vmm_kernel_pd_phys(void) {
+    return kernel_pd_phys;
+}
+
+void vmm_switch_pd(uintptr_t pd_phys) {
+    asm volatile("mov %0, %%cr3" :: "r"(pd_phys) : "memory");
 }
 
 int vmm_unmap_page(uintptr_t virtual_addr){

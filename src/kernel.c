@@ -90,13 +90,20 @@ void kmain(void)
     if (fs_init() == 0) {
         kprint("[KERNEL] ");
         print("FS init ok\n");
-        print("       _                        ___  ____  \n");
-        print("__   _(_)_ __ ___   ___  _ __  / _ \\/ ___| \n");
-        print("\\ \\ / / | '_ ` _ \\ / _ \\| '_ \\| | | \\___ \\ \n");
-        print(" \\ V /| | | | | | | (_) | | | | |_| |___) |\n");
-        print("  \\_/ |_|_| |_| |_|\\___/|_| |_|\\___/|____/ \n");
-        print("\n");
-        print("Welcome to vimonOS\n\n");
+        print("Press Enter to continue...\n");
+        for (;;) {
+            int ch = kbd_getchar();
+            if (ch < 0) {
+                asm volatile("hlt");
+                continue;
+            }
+            if (ch == '\n' || ch == '\r') {
+                break;
+            }
+        }
+        reset();
+        update_cursor(0, 0);
+        shell_print_banner();
     } else {
         kprint("[KERNEL] ");
         print("FS init failed\n");
@@ -105,7 +112,10 @@ void kmain(void)
     process_init();
 
     sched_init(5);             // 5 ticks quantum (~50ms if 100Hz PIT)
-    task_create(shell_task, 0);
+    task_t *shell = task_create(shell_task, 0);
+    if (shell) {
+        sched_set_foreground_pid(shell->pid);
+    }
     // task_create(taskA, 0);
     // task_create(taskB, 0);
     sched_enable(1);

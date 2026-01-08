@@ -62,7 +62,7 @@ static int elf_valid(const Elf32_Ehdr *eh) {
     return 1;
 }
 
-static int map_user_range(uint32_t vaddr, uint32_t size, uint32_t flags) {
+static int map_user_range(uint32_t *pd, uint32_t vaddr, uint32_t size, uint32_t flags) {
     uint32_t start = vaddr & 0xFFFFF000u;
     uint32_t end = (vaddr + size + 0xFFFu) & 0xFFFFF000u;
     for (uint32_t va = start; va < end; va += PAGE_SIZE) {
@@ -70,14 +70,15 @@ static int map_user_range(uint32_t vaddr, uint32_t size, uint32_t flags) {
         if (!frame) {
             return -1;
         }
-        if (vmm_map_page(va, frame, flags) != 0) {
+        if (vmm_map_page_pd(pd, va, frame, flags) != 0) {
             return -1;
         }
     }
     return 0;
 }
 
-static int load_elf_from_fs(const char *name8, uint32_t *entry_out) {
+static int load_elf_from_fs(const char *name8, uint32_t *entry_out,
+                            uint32_t *pd, uintptr_t pd_phys, uintptr_t kernel_pd_phys) {
     uint32_t sectors = 0;
     uint32_t max_sectors = 256;
     uint32_t buf_bytes = max_sectors * 512;
@@ -126,7 +127,7 @@ static int load_elf_from_fs(const char *name8, uint32_t *entry_out) {
         if (ph[i].p_flags & PF_W) {
             flags |= VMM_FLAG_RW;
         }
-        if (map_user_range(ph[i].p_vaddr, ph[i].p_memsz, flags) != 0) {
+        if (map_user_range(pd, ph[i].p_vaddr, ph[i].p_memsz, flags) != 0) {
             kfree(buf);
             return -1;
         }
@@ -134,16 +135,54 @@ static int load_elf_from_fs(const char *name8, uint32_t *entry_out) {
             kfree(buf);
             return -1;
         }
+    }
+
+    vmm_switch_pd(pd_phys);
+    for (uint16_t i = 0; i < eh->e_phnum; i++) {
+        if (ph[i].p_type != PT_LOAD) {
+            continue;
+        }
         memcpy((void *)ph[i].p_vaddr, buf + ph[i].p_offset, ph[i].p_filesz);
         if (ph[i].p_memsz > ph[i].p_filesz) {
             memset((void *)(ph[i].p_vaddr + ph[i].p_filesz), 0,
                    ph[i].p_memsz - ph[i].p_filesz);
         }
     }
+    vmm_switch_pd(kernel_pd_phys);
 
     *entry_out = eh->e_entry;
     kfree(buf);
     return 0;
+}
+
+static void free_user_address_space(task_t *t) {
+    if (!t || !t->page_dir_phys) {
+        return;
+    }
+    if (t->page_dir_phys == vmm_kernel_pd_phys()) {
+        return;
+    }
+    uint32_t *pd = (uint32_t *)t->page_dir_phys;
+    uint32_t user_pdi_start = USER_BASE >> 22;
+    uint32_t user_pdi_end = (USER_STACK_TOP - 1) >> 22;
+    for (uint32_t pdi = user_pdi_start; pdi <= user_pdi_end; pdi++) {
+        uint32_t pde = pd[pdi];
+        if (!(pde & VMM_FLAG_PRESENT)) {
+            continue;
+        }
+        uint32_t *pt = (uint32_t *)(pde & 0xFFFFF000u);
+        for (uint32_t pti = 0; pti < 1024; pti++) {
+            uint32_t pte = pt[pti];
+            if (pte & VMM_FLAG_PRESENT) {
+                uintptr_t frame = pte & 0xFFFFF000u;
+                pmm_free_page(frame);
+            }
+        }
+        pmm_free_page((uintptr_t)pt);
+        pd[pdi] = 0;
+    }
+    pmm_free_page(t->page_dir_phys);
+    t->page_dir_phys = vmm_kernel_pd_phys();
 }
 
 process_t *process_exec(const char *name8) {
@@ -152,14 +191,26 @@ process_t *process_exec(const char *name8) {
         return NULL;
     }
 
+    uintptr_t pd_phys = 0;
+    uint32_t *pd = vmm_create_user_pd(&pd_phys);
+    if (!pd) {
+        print("exec: pd alloc failed\n");
+        return NULL;
+    }
+    uint32_t user_pdi_start = USER_BASE >> 22;
+    uint32_t user_pdi_end = (USER_STACK_TOP - 1) >> 22;
+    for (uint32_t pdi = user_pdi_start; pdi <= user_pdi_end; pdi++) {
+        pd[pdi] = 0;
+    }
+
     uint32_t entry = 0;
-    if (load_elf_from_fs(name8, &entry) != 0) {
+    if (load_elf_from_fs(name8, &entry, pd, pd_phys, vmm_kernel_pd_phys()) != 0) {
         print("exec: load failed\n");
         return NULL;
     }
 
     uint32_t stack_base = USER_STACK_TOP - USER_STACK_SIZE;
-    if (map_user_range(stack_base, USER_STACK_SIZE, VMM_FLAG_PRESENT | VMM_FLAG_USER | VMM_FLAG_RW) != 0) {
+    if (map_user_range(pd, stack_base, USER_STACK_SIZE, VMM_FLAG_PRESENT | VMM_FLAG_USER | VMM_FLAG_RW) != 0) {
         print("exec: stack map failed\n");
         return NULL;
     }
@@ -186,6 +237,7 @@ process_t *process_exec(const char *name8) {
     g_proc_list = p;
 
     t->proc = p;
+    t->page_dir_phys = pd_phys;
     return p;
 }
 
@@ -202,6 +254,29 @@ void process_kill(uint32_t pid) {
         p = p->next;
     }
     print("kill: pid not found\n");
+}
+
+void process_reap_task(task_t *t) {
+    if (!t) {
+        return;
+    }
+    process_t *prev = NULL;
+    process_t *p = g_proc_list;
+    while (p) {
+        if (p->task == t) {
+            if (prev) {
+                prev->next = p->next;
+            } else {
+                g_proc_list = p->next;
+            }
+            free_user_address_space(t);
+            kfree(p);
+            return;
+        }
+        prev = p;
+        p = p->next;
+    }
+    free_user_address_space(t);
 }
 
 void process_list(void) {

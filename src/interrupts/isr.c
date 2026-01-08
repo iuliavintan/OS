@@ -1,5 +1,6 @@
 #include "isr.h"
 #include "../syscalls.h"
+#include "../trace.h"
 
 
 char * exception_messages[] = {
@@ -131,6 +132,7 @@ uint32_t isr_dispatch(struct IntrerruptRegisters* regs){
             break;
         }
         case 128: {
+            trace_log_entry("sys", regs, sched_current());
             return syscall_dispatch(regs, current_saved_esp);
         }
         default:

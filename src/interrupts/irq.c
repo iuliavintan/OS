@@ -1,5 +1,8 @@
 #include "irq.h"
-#include "../scheduling/sched.h"   
+#include "../scheduling/sched.h"
+#include "../process.h"
+#include "../trace.h"
+#include "../timers/timer.h"
 
 
 void *irq_routines[16] = {              //irq routines associated with our interrupt requests
@@ -28,7 +31,7 @@ uint32_t irq_handler(struct IntrerruptRegisters *regs)
 
     int vec = regs->int_no;
     int irq_no = vec - 32;
-
+    trace_log_entry("irq", regs, sched_current());
 
     uint32_t current_saved_esp = ((uint32_t)regs) + 4;
     uint32_t next_saved_esp = current_saved_esp;
@@ -130,6 +133,7 @@ unsigned char scancode_to_ascii[128] = {
 boolean caps_lock = 0;
 boolean left_shift_pressed = 0;
 boolean right_shift_pressed = 0;
+static boolean ctrl_pressed = 0;
 static uint8_t e0 = 0;
 void irq1_handler(struct IntrerruptRegisters *r) {
     (void)r;
@@ -153,6 +157,10 @@ void irq1_handler(struct IntrerruptRegisters *r) {
         }
         if (keycode == 0x36) {
             right_shift_pressed = !key_released;
+            continue;
+        }
+        if (keycode == 0x1D) {
+            ctrl_pressed = !key_released;
             continue;
         }
         if (keycode == 0x3A) {
@@ -198,6 +206,24 @@ void irq1_handler(struct IntrerruptRegisters *r) {
                 case 53: c = '?'; break;
                 default: break;
             }
+        }
+        if (ctrl_pressed && (c == 't' || c == 'T')) {
+            if (trace_get()) {
+                trace_set(0);
+                print("[TRACE] off\n");
+            }
+            if (tick_get()) {
+                tick_set(0);
+                print("[TICK] off\n");
+            }
+            continue;
+        }
+        if (ctrl_pressed && (c == 'c' || c == 'C')) {
+            task_t *current = sched_current();
+            if (current && current->is_user) {
+                process_kill(current->pid);
+            }
+            continue;
         }
         kbd_push_char((uint8_t)c);
     }

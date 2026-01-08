@@ -7,6 +7,13 @@ static uint32_t syscall_write(uint32_t fd, const char *buf, uint32_t len) {
     if (fd != 1 || buf == NULL) {
         return (uint32_t)-1;
     }
+    task_t *current = sched_current();
+    if (current && current->is_user) {
+        uint32_t fg_pid = sched_get_foreground_pid();
+        if (fg_pid != 0 && current->pid != fg_pid) {
+            return len;
+        }
+    }
     for (uint32_t i = 0; i < len; i++) {
         putc(buf[i]);
     }

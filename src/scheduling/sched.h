@@ -37,6 +37,7 @@ typedef struct task {
     void *kstack_base;
     uint32_t kstack_size;
     uint32_t kstack_top;
+    uintptr_t page_dir_phys;
     int is_user;
     void *proc;
 
@@ -46,10 +47,14 @@ typedef struct task {
 
 void     sched_init(uint32_t quantum_ticks);
 void     sched_enable(int enabled);
+task_t  *sched_current(void);
+void     sched_set_foreground_pid(uint32_t pid);
+uint32_t sched_get_foreground_pid(void);
 
 task_t*   task_create(void (*entry)(void), uint32_t stack_size);
 task_t*   task_create_user(uint32_t entry, uint32_t user_stack_top);
 
 uint32_t  sched_on_tick(uint32_t current_saved_esp);
+void      sched_reap_zombies(void);
 
 #endif 

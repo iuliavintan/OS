@@ -2,12 +2,15 @@
 
 uint64_t ticks;
 const uint32_t frequency = 100;
+static int g_tick_enabled = 0;
 
 void irq0on(IntrerruptRegisters *regs)
 {
     (void)regs;
     ticks+=1;
-    // print("Timer ticked!");
+    if (g_tick_enabled && (ticks % 10 == 0)) {
+        print("[TICK] %d\n", (uint32_t)ticks);
+    }
 }
 
 void initTimer()
@@ -30,4 +33,12 @@ void initTimer()
 
 uint64_t timer_get_ticks(void) {
     return ticks;
+}
+
+void tick_set(int enabled) {
+    g_tick_enabled = enabled ? 1 : 0;
+}
+
+int tick_get(void) {
+    return g_tick_enabled;
 }

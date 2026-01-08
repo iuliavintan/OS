@@ -44,20 +44,17 @@ void set(){
 
 void new_line()
 {
-    if(line<vga_height-1)
-    {
+    if (line < vga_height - 1) {
         line++;
-        column=0;
-    }
-    else
-    {
-        //we are at the bottom of the screen
+    } else {
+        // We are at the bottom of the screen, keep cursor on last row.
         scroll_up();
-        column=0;
+        line = vga_height - 1;
     }
-    cursor_y+=1;
+    column = 0;
+    cursor_y = line;
     cursor_x = 0;
-    update_cursor(cursor_x,cursor_y);
+    update_cursor(cursor_x, cursor_y);
 }
 
 void scroll_up()
@@ -397,4 +394,3 @@ void get_cursor_position(uint16_t *x, uint16_t *y)
     *x = pos % vga_width;
     //return pos;
 }
-

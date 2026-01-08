@@ -9,6 +9,8 @@
 
 void initTimer();
 uint64_t timer_get_ticks(void);
+void tick_set(int enabled);
+int tick_get(void);
 
 void irq0on( IntrerruptRegisters *regs);
  //runs when the interrupt is trigger associated with the timer => irq0

@@ -1,10 +1,13 @@
 #include "sched.h"
 #include "../gdt.h"
 #include "../process.h"
+#include "../memory/vmm.h"
+#include "../trace.h"
 
 static task_t *g_runq = NULL;        // circular list 
 static task_t *g_current = NULL;     // currently running task
 static uint32_t g_next_pid = 1;
+static uint32_t g_foreground_pid = 0;
 
 static uint32_t g_quantum = 5;       // in timer ticks
 static uint32_t g_left = 5;
@@ -22,6 +25,29 @@ static void runq_push(task_t *t) {
     while (tail->next_task != g_runq) tail = tail->next_task;
     tail->next_task = t;
     t->next_task = g_runq;
+}
+
+static void runq_remove(task_t *t) {
+    if (!g_runq || !t) {
+        return;
+    }
+    if (g_runq == t && g_runq->next_task == g_runq) {
+        g_runq = NULL;
+        t->next_task = NULL;
+        return;
+    }
+    task_t *prev = g_runq;
+    while (prev->next_task != t && prev->next_task != g_runq) {
+        prev = prev->next_task;
+    }
+    if (prev->next_task != t) {
+        return;
+    }
+    prev->next_task = t->next_task;
+    if (g_runq == t) {
+        g_runq = t->next_task;
+    }
+    t->next_task = NULL;
 }
 
 static task_t* runq_next_runnable(task_t *from) {
@@ -48,6 +74,7 @@ static void ensure_idle_task(uint32_t current_saved_esp) {
     idle->stack_base = NULL;
     idle->stack_size = 0;
     idle->next_task = NULL;
+    idle->page_dir_phys = vmm_kernel_pd_phys();
 
     g_current = idle;
     runq_push(idle);
@@ -64,6 +91,18 @@ void sched_init(uint32_t quantum_ticks) {
 
 void sched_enable(int enabled) {
     g_enabled = enabled ? 1 : 0;
+}
+
+task_t *sched_current(void) {
+    return g_current;
+}
+
+void sched_set_foreground_pid(uint32_t pid) {
+    g_foreground_pid = pid;
+}
+
+uint32_t sched_get_foreground_pid(void) {
+    return g_foreground_pid;
 }
 
 // Build an initial task_frame on the new task's stack so that when the stub restores
@@ -86,6 +125,7 @@ task_t* task_create(void (*entry)(void), uint32_t stack_size) {
     t->kstack_base = t->stack_base;
     t->kstack_size = t->stack_size;
     t->kstack_top = (uint32_t)t->stack_base + t->stack_size;
+    t->page_dir_phys = vmm_kernel_pd_phys();
     t->is_user = 0;
     t->proc = NULL;
 
@@ -125,6 +165,7 @@ task_t* task_create_user(uint32_t entry, uint32_t user_stack_top) {
     t->state = TASK_READY;
     t->is_user = 1;
     t->proc = NULL;
+    t->page_dir_phys = vmm_kernel_pd_phys();
 
     t->kstack_size = STACK_SIZE_DEFAULT;
     t->kstack_base = kmalloc(t->kstack_size);
@@ -173,13 +214,17 @@ uint32_t sched_on_tick(uint32_t current_saved_esp) {
 
     // Save the current context into current task
     g_current->saved_esp = current_saved_esp;
-    g_current->state = TASK_READY;
-    if (g_current->proc) {
-        ((process_t *)g_current->proc)->state = PROC_READY;
+    if (g_current->state != TASK_ZOMBIE) {
+        g_current->state = TASK_READY;
+        if (g_current->proc) {
+            ((process_t *)g_current->proc)->state = PROC_READY;
+        }
+    } else if (g_current->proc) {
+        ((process_t *)g_current->proc)->state = PROC_ZOMBIE;
     }
 
     if (g_left > 0) g_left--;
-    if (g_left != 0) {
+    if (g_left != 0 && g_current->state != TASK_ZOMBIE) {
         // Continue running current task
         g_current->state = TASK_RUNNING;
         process_on_tick(g_current);
@@ -189,6 +234,7 @@ uint32_t sched_on_tick(uint32_t current_saved_esp) {
     // Time slice expired: pick next runnable
     g_left = g_quantum;
 
+    task_t *prev = g_current;
     task_t *next = runq_next_runnable(g_current);
     if (!next) {
         // Nothing runnable -> run idle (current)
@@ -199,8 +245,44 @@ uint32_t sched_on_tick(uint32_t current_saved_esp) {
     g_current = next;
     g_current->state = TASK_RUNNING;
     process_on_tick(g_current);
+    if (prev && !prev->is_user && g_current->is_user) {
+        trace_log_return(g_current);
+    }
+    if (g_current->page_dir_phys) {
+        vmm_switch_pd(g_current->page_dir_phys);
+    }
     if (g_current->kstack_top) {
         tss_set_kernel_stack(g_current->kstack_top);
     }
+    sched_reap_zombies();
     return g_current->saved_esp;
+}
+
+void sched_reap_zombies(void) {
+    if (!g_runq) {
+        return;
+    }
+    int count = 0;
+    task_t *t = g_runq;
+    do {
+        count++;
+        t = t->next_task;
+    } while (t && t != g_runq);
+
+    t = g_runq;
+    for (int i = 0; i < count && g_runq; i++) {
+        task_t *next = t->next_task;
+        if (t->state == TASK_ZOMBIE && t != g_current) {
+            runq_remove(t);
+            process_reap_task(t);
+            if (t->kstack_base) {
+                kfree(t->kstack_base);
+            }
+            if (t->stack_base && t->stack_base != t->kstack_base) {
+                kfree(t->stack_base);
+            }
+            kfree(t);
+        }
+        t = next;
+    }
 }
