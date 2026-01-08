@@ -87,6 +87,13 @@ void kmain(void)
     if (fs_init() == 0) {
         kprint("[KERNEL] ");
         print("FS init ok\n");
+        print("       _                        ___  ____  \n");
+        print("__   _(_)_ __ ___   ___  _ __  / _ \\/ ___| \n");
+        print("\\ \\ / / | '_ ` _ \\ / _ \\| '_ \\| | | \\___ \\ \n");
+        print(" \\ V /| | | | | | | (_) | | | | |_| |___) |\n");
+        print("  \\_/ |_|_| |_| |_|\\___/|_| |_|\\___/|____/ \n");
+        print("\n");
+        print("Welcome to vimonOS\n\n");
     } else {
         kprint("[KERNEL] ");
         print("FS init failed\n");
