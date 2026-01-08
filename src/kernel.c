@@ -97,10 +97,10 @@ void kmain(void)
      OutPortByte(0x21, mask);
      asm volatile("sti");
 
-    //  sched_init(5);             // 5 ticks quantum (~50ms if 100Hz PIT)
-    // task_create(taskA, 0);
-    // task_create(taskB, 0);
-    // sched_enable(1);
+     sched_init(5);             // 5 ticks quantum (~50ms if 100Hz PIT)
+    task_create(taskA, 0);
+    task_create(taskB, 0);
+    sched_enable(1);
         
      for (;;)
         asm volatile("hlt");
