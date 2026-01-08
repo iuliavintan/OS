@@ -115,6 +115,10 @@ static int load_elf_from_fs(const char *name8, uint32_t *entry_out) {
             continue;
         }
         if (ph[i].p_vaddr < USER_BASE) {
+            uint32_t end = ph[i].p_vaddr + ph[i].p_memsz;
+            if (ph[i].p_offset == 0 && end <= USER_BASE && ph[i].p_filesz <= 0x1000u) {
+                continue;
+            }
             kfree(buf);
             return -1;
         }
