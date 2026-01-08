@@ -11,6 +11,7 @@
 #include "memory/kheap.h"
 #include "memory/tests.h"
 #include "fs/fs.h"
+#include"scheduling/sched.h"
 
 // #define MEM_TESTS
 // #define KHEAP_TESTS
