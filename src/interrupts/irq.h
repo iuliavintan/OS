@@ -7,7 +7,7 @@
 
 void irq_install_handler(int irq, void (*handler)(struct IntrerruptRegisters *r));
 void irq_uninstall_handler(int irq);
-void irq_handler(struct IntrerruptRegisters *regs);
+uint32_t irq_handler(struct IntrerruptRegisters *regs);
 void irq0_handler(struct IntrerruptRegisters *r);
 void irq1_handler(struct IntrerruptRegisters *r);
 

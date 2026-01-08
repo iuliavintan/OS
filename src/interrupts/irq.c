@@ -1,5 +1,5 @@
 #include "irq.h"
-
+#include "../scheduling/sched.h"   
 
 
 void *irq_routines[16] = {              //irq routines associated with our interrupt requests
@@ -22,41 +22,50 @@ static uint8_t pic_isr_master(void){ OutPortByte(0x20, 0x0B); return InPortByte(
 static uint8_t pic_isr_slave (void){  OutPortByte(0xA0, 0x0B); return InPortByte(0xA0); }
 
 
-void irq_handler(struct IntrerruptRegisters *regs)
+uint32_t irq_handler(struct IntrerruptRegisters *regs)
 {
     void (* handler)(struct IntrerruptRegisters *regs);
 
     int vec = regs->int_no;
     int irq_no = vec - 32;
 
+
+    uint32_t current_saved_esp = ((uint32_t)regs) + 4;
+    uint32_t next_saved_esp = current_saved_esp;
+
+    if(vec == 0x27){
+        if (!(pic_isr_master() & (1 << 7))) {
+            // Spurious: DO NOT send any EOI
+            return current_saved_esp;
+        }
+    }
+    
+    if(vec == 0x2F){
+        if (!(pic_isr_slave() & (1 << 7))) {
+            // Spurious: DO NOT send any EOI
+            OutPortByte(0x20, 0x20);
+            return current_saved_esp;
+        }
+    }
+
     handler = irq_routines[irq_no];
-
-
     if(handler)
     {
         handler(regs);
+    }
+
+    if (irq_no == 0) {
+        next_saved_esp = sched_on_tick(current_saved_esp);
     }
 
     if(vec >= 40)
     {
         OutPortByte(0xA0, 0x20);
     }
-    else if(vec == 0x27){
-         if (!(pic_isr_master() & (1 << 7))) {
-            // Spurious: DO NOT send any EOI
-            return;
-        }
-    }
-    else if(vec == 0x2F){
-         if (!(pic_isr_slave() & (1 << 7))) {
-            // Spurious: DO NOT send any EOI
-            OutPortByte(0x20, 0x20);
-            return;
-        }
-    }
+    else 
 
     OutPortByte(0x20, 0x20);
-
+    return next_saved_esp;
 }
 
 void irq0_handler(struct IntrerruptRegisters *r)

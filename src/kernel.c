@@ -15,8 +15,23 @@
 // #define MEM_TESTS
 // #define KHEAP_TESTS
 // #define HEAP_DUMP
+// #define FILE_SYS_TEST
 
 void kmain(void);
+
+static void taskA(void) {
+    for (;;) {
+        putc('A');
+        for (volatile uint32_t i = 0; i < 2000000; i++) { }
+    }
+}
+
+static void taskB(void) {
+    for (;;) {
+        putc('B');
+        for (volatile uint32_t i = 0; i < 2000000; i++) { }
+    }
+}
 
 void kmain(void)
 {
@@ -58,28 +73,35 @@ void kmain(void)
      #ifdef HEAP_DUMP
      heap_dump();
      #endif
+     #ifdef FILE_SYS_TEST
+    if (fs_init() == 0) {
+            uint32_t sectors = 0;
+            if (fs_load_file("CALC    ", (void *)0x300000, 128, &sectors) == 0) {
+                kprint("[KERNEL] ");
+                print("FS loaded CALC (%d sectors)\n", sectors);
+                void (*calc_entry)(void) = (void (*)(void))0x300000;
+                calc_entry();
+            } else {
+                kprint("[KERNEL] ");
+                print("FS load failed\n");
+            }
+        } else {
+            kprint("[KERNEL] ");
+            print("FS init failed\n");
+        }
+
+     #endif
 
      uint8_t mask = InPortByte(0x21);
      mask &= ~(1 << 0); // dezactivează masca pentru IRQ0 (timer)
      OutPortByte(0x21, mask);
      asm volatile("sti");
 
-     if (fs_init() == 0) {
-         uint32_t sectors = 0;
-         if (fs_load_file("CALC    ", (void *)0x300000, 128, &sectors) == 0) {
-             kprint("[KERNEL] ");
-             print("FS loaded CALC (%d sectors)\n", sectors);
-             void (*calc_entry)(void) = (void (*)(void))0x300000;
-             calc_entry();
-         } else {
-             kprint("[KERNEL] ");
-             print("FS load failed\n");
-         }
-     } else {
-         kprint("[KERNEL] ");
-         print("FS init failed\n");
-     }
-
+    //  sched_init(5);             // 5 ticks quantum (~50ms if 100Hz PIT)
+    // task_create(taskA, 0);
+    // task_create(taskB, 0);
+    // sched_enable(1);
+        
      for (;;)
         asm volatile("hlt");
 }

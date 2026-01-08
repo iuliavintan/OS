@@ -8,6 +8,8 @@
 
 #define STACK_SIZE_DEFAULT 8192 // 8 KB
 
+#define KERNEL_CS 0x08  //code=0x08
+#define KERNEL_DS 0x10  //data=0x10
 
 typedef enum {
     TASK_READY = 0,
@@ -16,21 +18,32 @@ typedef enum {
     TASK_ZOMBIE
 } task_state_t;
 
-typedef struct task_regs {
-    uint32_t cr2;
+typedef struct task_frame {
     uint32_t gs, fs, es, ds;
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
-    uint32_t eip, cs, eflags, useresp, ss;
-} task_regs_t;
+    uint32_t int_no, err_code;
+    uint32_t eip, cs, eflags;
+} __attribute__((packed)) task_frame_t;
 
 typedef struct task {
     uint32_t pid;
     task_state_t state;
-    task_regs_t context;
-    void* stack_base;
+
+    // Saved stack pointer that points to the start of task_frame_t (the gs field).
+    uint32_t saved_esp;
+
+    void *stack_base;
     uint32_t stack_size;
-    struct task* next_task;
+
+    struct task *next_task;
 } task_t;
 
-uint32_t init_task(task_t* task, uint32_t pid, void (*entry)(void));
+
+void     sched_init(uint32_t quantum_ticks);
+void     sched_enable(int enabled);
+
+task_t*   task_create(void (*entry)(void), uint32_t stack_size);
+
+uint32_t  sched_on_tick(uint32_t current_saved_esp);
+
 #endif 

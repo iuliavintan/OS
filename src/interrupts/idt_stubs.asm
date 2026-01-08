@@ -74,12 +74,13 @@ irq_common_stub:
     mov  gs, ax
 
     push dword 0            ; align stack for irq_handler
-
     push esp
     call irq_handler
     add  esp, 4
-
     add esp, 4
+    
+    mov esp, eax        ; switch to next task's saved_esp
+
     pop  gs
     pop  fs
     pop  es
