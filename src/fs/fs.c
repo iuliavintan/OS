@@ -31,6 +31,7 @@ static fs_header g_hdr;
 static uint8_t g_hdr_sector[FS_SECTOR_SIZE];
 static uint8_t g_fat[FS_SECTOR_SIZE];
 static uint8_t g_root[FS_SECTOR_SIZE];
+static int g_fs_ready = 0;
 
 static int name_match(const char *name8, const char entry[8]) {
     for (int i = 0; i < 8; i++) {
@@ -46,6 +47,7 @@ static int name_match(const char *name8, const char entry[8]) {
 }
 
 int fs_init(void) {
+    g_fs_ready = 0;
     if (ata_pio_read(FS_HDR_LBA, 1, g_hdr_sector) != 0) {
         return -1;
     }
@@ -62,6 +64,7 @@ int fs_init(void) {
     if (ata_pio_read(g_hdr.root_lba, 1, g_root) != 0) {
         return -1;
     }
+    g_fs_ready = 1;
     return 0;
 }
 
@@ -101,4 +104,30 @@ int fs_load_file(const char *name8, void *dest, uint32_t max_sectors, uint32_t *
         *out_sectors = count;
     }
     return 0;
+}
+
+int fs_ready(void) {
+    return g_fs_ready;
+}
+
+void fs_iterate_root(void (*cb)(const char *name8, uint16_t start_cluster, void *ctx), void *ctx) {
+    if (!g_fs_ready || !cb) {
+        return;
+    }
+    fs_dirent *ents = (fs_dirent *)g_root;
+    for (uint32_t i = 0; i < (FS_SECTOR_SIZE / sizeof(fs_dirent)); i++) {
+        const char *name = ents[i].name;
+        uint16_t start = ents[i].start_cluster;
+        int empty = 1;
+        for (int j = 0; j < 8; j++) {
+            if (name[j] != ' ') {
+                empty = 0;
+                break;
+            }
+        }
+        if (empty || start < 2) {
+            continue;
+        }
+        cb(name, start, ctx);
+    }
 }

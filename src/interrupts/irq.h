@@ -12,6 +12,7 @@ void irq0_handler(struct IntrerruptRegisters *r);
 void irq1_handler(struct IntrerruptRegisters *r);
 
 void idt_enable_keyboard(void);
+int kbd_getchar(void);
 //extern volatile uint32_t keyboard_irq_count;
 
 

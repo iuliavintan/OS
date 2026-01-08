@@ -158,7 +158,7 @@ $(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(CALC_BIN) $(FS_TABLE)
 	dd if="$(CALC_BIN)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc
 
 run: $(DISK)
-	$(QEMU) -drive file=$(DISK),format=raw -no-reboot -no-shutdown -d int,cpu_reset -m 4G
+	$(QEMU) -drive file=$(DISK),format=raw -no-shutdown -d int,cpu_reset -m 4G
 
 clean:
 	rm -rf $(BINDIR) $(BUILDDIR) $(DISK)

@@ -76,6 +76,29 @@ void irq0_handler(struct IntrerruptRegisters *r)
 }
 static uint8_t kb_status(void) { return InPortByte(0x64); }
 volatile uint32_t keyboard_irq_count = 0;
+ 
+#define KBD_BUF_SIZE 128
+static volatile uint8_t kbd_buf[KBD_BUF_SIZE];
+static volatile uint32_t kbd_head = 0;
+static volatile uint32_t kbd_tail = 0;
+
+static void kbd_push_char(uint8_t c) {
+    uint32_t next = (kbd_head + 1) % KBD_BUF_SIZE;
+    if (next == kbd_tail) {
+        return;
+    }
+    kbd_buf[kbd_head] = c;
+    kbd_head = next;
+}
+
+int kbd_getchar(void) {
+    if (kbd_tail == kbd_head) {
+        return -1;
+    }
+    uint8_t c = kbd_buf[kbd_tail];
+    kbd_tail = (kbd_tail + 1) % KBD_BUF_SIZE;
+    return (int)c;
+}
 // 
 // void irq1_handler(struct IntrerruptRegisters *r) {
     // (void)r;
@@ -105,7 +128,6 @@ unsigned char scancode_to_ascii[128] = {
 };
 
 boolean caps_lock = 0;
-boolean shift_pressed = 0;
 boolean left_shift_pressed = 0;
 boolean right_shift_pressed = 0;
 static uint8_t e0 = 0;
@@ -120,107 +142,64 @@ void irq1_handler(struct IntrerruptRegisters *r) {
         boolean key_released = sc & 0x80;
         uint8_t keycode = sc & 0x7F;
 
-
-        uint16_t cursor_x, cursor_y;
-        get_cursor_position(&cursor_x,&cursor_y);
-         if (e0) {
-            if (!key_released) {
-                switch (keycode) {
-                    case 0x4B: // Left Arrow
-                        if (cursor_x > 0) cursor_x--;
-                        update_cursor(cursor_x,cursor_y);
-                        break;
-                    case 0x4D: // Right Arrow
-                        if (cursor_x < vga_width - 1) cursor_x++;
-                        update_cursor(cursor_x,cursor_y);
-                        break;
-                    case 0x48: // Up Arrow
-                       // if (cursor_y > 0) cursor_y--;
-                      //  update_cursor();
-                        break;
-                    case 0x50: // Down Arrow
-                       // if (cursor_y < vga_height - 1) cursor_y++;
-                       // update_cursor();
-                        break;
-                    case 0x47: // Home
-                        cursor_x = 0; update_cursor(cursor_x,cursor_y);
-                        break;
-                    case 0x4F: // End
-                        cursor_x = vga_width - 1; update_cursor(cursor_x,cursor_y);
-                        break;
-                    case 0x53: // Delete
-                        deletec(&cursor_x,&cursor_y);
-                        break;
-                    default:
-                        break;
-                }
-            }
-            e0 = 0; // consume the extended state
+        if (e0) {
+            e0 = 0;
             continue;
         }
 
-
-        if( keycode == 0x2A){
+        if (keycode == 0x2A) {
             left_shift_pressed = !key_released;
+            continue;
         }
-        else if( keycode == 0x36){
+        if (keycode == 0x36) {
             right_shift_pressed = !key_released;
+            continue;
         }
-        else if( keycode == 0x3A ){
-            if(!key_released)
-                caps_lock= !caps_lock;
+        if (keycode == 0x3A) {
+            if (!key_released) {
+                caps_lock = !caps_lock;
+            }
+            continue;
         }
-        else if (!key_released) {  
-            shift_pressed = left_shift_pressed || right_shift_pressed;
-            if(shift_pressed){
-                // Handle shifted characters
-                char c = scancode_to_ascii[keycode];
-                if( !caps_lock )
-                    c = c - 32;
-                switch(keycode){
-                    case 2: c = '!'; break;
-                    case 3: c = '@'; break;
-                    case 4: c = '#'; break;
-                    case 5: c = '$'; break;
-                    case 6: c = '%'; break;
-                    case 7: c = '^'; break;
-                    case 8: c = '&'; break;
-                    case 9: c = '*'; break;
-                    case 10: c = '('; break;
-                    case 11: c = ')'; break;
-                    case 12: c = '_'; break;
-                    case 13: c = '+'; break;
-                    case 26: c = '{'; break;
-                    case 27: c = '}'; break;
-                    case 39: c = '"'; break;
-                    case 40: c = '\n'; break;
-                    case 43: c = '|'; break;
-                    case 51: c = '<'; break;
-                    case 52: c = '>'; break;
-                    case 53: c = '?'; break;
-                    case 75: {uint16_t a,b; get_cursor_position(&a,&b); update_cursor(a-1,b);break;}
-                    case 77: {uint16_t a,b; get_cursor_position(&a,&b); update_cursor(a+1,b);break;}
-                    default:
-                        break;
-                }
-                if (c)
-                    putc(c);
-                
+        if (key_released) {
+            continue;
+        }
+
+        boolean shift_pressed = left_shift_pressed || right_shift_pressed;
+        char c = scancode_to_ascii[keycode];
+        if (!c) {
+            continue;
+        }
+
+        if (c >= 'a' && c <= 'z') {
+            if (shift_pressed ^ caps_lock) {
+                c = (char)(c - 32);
             }
-            else if( caps_lock  ){
-                char c = scancode_to_ascii[keycode]; 
-                if(!shift_pressed) 
-                    c = c - 32;   
-                if (c)
-                    putc(c);
-                
-            }
-            else{
-                char c = scancode_to_ascii[keycode];
-                if (c)
-                    putc(c);
+        } else if (shift_pressed) {
+            switch (keycode) {
+                case 2: c = '!'; break;
+                case 3: c = '@'; break;
+                case 4: c = '#'; break;
+                case 5: c = '$'; break;
+                case 6: c = '%'; break;
+                case 7: c = '^'; break;
+                case 8: c = '&'; break;
+                case 9: c = '*'; break;
+                case 10: c = '('; break;
+                case 11: c = ')'; break;
+                case 12: c = '_'; break;
+                case 13: c = '+'; break;
+                case 26: c = '{'; break;
+                case 27: c = '}'; break;
+                case 39: c = '"'; break;
+                case 43: c = '|'; break;
+                case 51: c = '<'; break;
+                case 52: c = '>'; break;
+                case 53: c = '?'; break;
+                default: break;
             }
         }
+        kbd_push_char((uint8_t)c);
     }
     keyboard_irq_count++;
    // OutPortByte(0x20, 0x20);
