@@ -46,8 +46,10 @@ KERNEL_ELF := $(BUILDDIR)/kernel.elf
 KERNEL_BIN := $(BINDIR)/kernel.bin
 FS_TABLE   := $(BINDIR)/fs.bin
 MKFS_TOOL  := $(BUILDDIR)/utils/mkfs
-CALC_ELF   := $(BUILDDIR)/calc.elf
-CALC_BIN   := $(BINDIR)/calc.bin
+U1_ELF   := $(BUILDDIR)/u1.elf
+U1_BIN   := $(BINDIR)/u1.bin
+U2_ELF   := $(BUILDDIR)/u2.elf
+U2_BIN   := $(BINDIR)/u2.bin
 
 # ===================== Flags =====================
 CFLAGS   := -m32 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie -O2 -Wall -Wextra -mno-sse -mno-sse2 -mno-mmx -msoft-float -fno-asynchronous-unwind-tables $(C_INCLUDES)
@@ -110,7 +112,7 @@ $(STAGE2_PAD): $(STAGE2_BIN) | dirs
 # Kernel sources (place kernel.asm and kernel C under src/ or kernel/)
 KERNEL_ASM_SRCS := $(shell find src -type f -name '*.asm' -o -name 'kernel.asm')
 UTILS_C_SRCS    := $(shell find utils -type f -name '*.c' ! -name 'mkfs.c')
-KERNEL_C_SRCS   := $(shell find src -type f -name '*.c') $(UTILS_C_SRCS)
+KERNEL_C_SRCS   := $(shell find src -type f -name '*.c' ! -path 'src/user/*') $(UTILS_C_SRCS)
 KERNEL_ASM_OBJS := $(KERNEL_ASM_SRCS:%.asm=$(BUILDDIR)/%.asm.o)
 KERNEL_C_OBJS   := $(KERNEL_C_SRCS:%.c=$(BUILDDIR)/%.o)
 KERNEL_OBJS     := $(KERNEL_ASM_OBJS) $(KERNEL_C_OBJS)
@@ -129,10 +131,18 @@ $(BUILDDIR)/src/user/%.o: src/user/%.c | dirs
 	@mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
 
-$(CALC_ELF): $(BUILDDIR)/src/user/calc.o | dirs
-	$(LD) -m elf_i386 -Ttext 0x300000 -e calc_main -o $@ $^
+USER_LIBU := $(BUILDDIR)/src/user/libu.o
 
-$(CALC_BIN): $(CALC_ELF)
+$(U1_ELF): $(BUILDDIR)/src/user/u1.o $(USER_LIBU) | dirs
+	$(LD) -m elf_i386 -Ttext 0x00400000 -e _start -o $@ $^
+
+$(U2_ELF): $(BUILDDIR)/src/user/u2.o $(USER_LIBU) | dirs
+	$(LD) -m elf_i386 -Ttext 0x00400000 -e _start -o $@ $^
+
+$(U1_BIN): $(U1_ELF)
+	$(OBJCOPY) -O binary $< $@
+
+$(U2_BIN): $(U2_ELF)
 	$(OBJCOPY) -O binary $< $@
 
 # Host tool to build filesystem table
@@ -141,11 +151,11 @@ $(MKFS_TOOL): utils/mkfs.c | dirs
 	$(HOSTCC) $(HOSTCFLAGS) $< -o $@
 
 # Filesystem tables (3 sectors starting at LBA1)
-$(FS_TABLE): $(STAGE2_PAD) $(KERNEL_BIN) $(CALC_BIN) $(MKFS_TOOL) | dirs
-	@$(MKFS_TOOL) --out "$@" --stage2 "$(STAGE2_PAD)" --kernel "$(KERNEL_BIN)" --prog "$(CALC_BIN)"
+$(FS_TABLE): $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(MKFS_TOOL) | dirs
+	@$(MKFS_TOOL) --out "$@" --stage2 "$(STAGE2_PAD)" --kernel "$(KERNEL_BIN)" --prog1 "$(U1_ELF)" --prog2 "$(U2_ELF)"
 
 # Disk image: [LBA0: stage1][LBA1: fs hdr][LBA2: FAT][LBA3: root][LBA4..: data]
-$(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(CALC_BIN) $(FS_TABLE)
+$(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(FS_TABLE)
 	@truncate -s $(DISK_SIZE) "$(DISK)"
 	dd if="$(STAGE1_BIN)" of="$(DISK)" bs=$(SECTOR) seek=0 conv=notrunc
 	dd if="$(FS_TABLE)" of="$(DISK)" bs=$(SECTOR) seek=1 conv=notrunc
@@ -154,8 +164,11 @@ $(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(CALC_BIN) $(FS_TABLE)
 	echo "Writing kernel at LBA $$lba"; \
 	dd if="$(KERNEL_BIN)" of="$(DISK)" bs=$(SECTOR) seek=$$lba conv=notrunc
 	@plba=$$(( 4 + $(STAGE2_SECT) + ($$(stat -c%s "$(KERNEL_BIN)") + 511) / 512 )); \
-	echo "Writing calc at LBA $$plba"; \
-	dd if="$(CALC_BIN)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc
+	echo "Writing u1 at LBA $$plba"; \
+	dd if="$(U1_ELF)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc; \
+	plba=$$(( $$plba + ($$(stat -c%s "$(U1_ELF)") + 511) / 512 )); \
+	echo "Writing u2 at LBA $$plba"; \
+	dd if="$(U2_ELF)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc
 
 run: $(DISK)
 	$(QEMU) -drive file=$(DISK),format=raw -no-shutdown -d int,cpu_reset -m 4G

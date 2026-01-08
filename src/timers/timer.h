@@ -8,6 +8,7 @@
 #include"../utils/vga.h"
 
 void initTimer();
+uint64_t timer_get_ticks(void);
 
 void irq0on( IntrerruptRegisters *regs);
  //runs when the interrupt is trigger associated with the timer => irq0

@@ -43,6 +43,12 @@ isr_common_stub:
     push fs
     push gs
 
+    mov  ax, 0x10
+    mov  ds, ax
+    mov  es, ax
+    mov  fs, ax
+    mov  gs, ax
+
     mov  eax, cr2
     push eax            ; extra dword lives ABOVE the segs
 
@@ -50,7 +56,7 @@ isr_common_stub:
     call isr_dispatch
     add  esp, 4
 
-    add  esp, 4         ; discard cr2 we added
+    mov  esp, eax       ; switch to next task's saved_esp
     pop  gs
     pop  fs
     pop  es

@@ -28,3 +28,6 @@ void initTimer()
 
 }
 
+uint64_t timer_get_ticks(void) {
+    return ticks;
+}

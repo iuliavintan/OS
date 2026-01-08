@@ -1,4 +1,5 @@
 #include "isr.h"
+#include "../syscalls.h"
 
 
 char * exception_messages[] = {
@@ -120,8 +121,8 @@ void page_fault_handler(uint32_t err_no, uint32_t cr2_fault_addr){
         asm volatile("hlt");
 }
 
-void isr_dispatch(struct IntrerruptRegisters* regs){
-    (void)regs;
+uint32_t isr_dispatch(struct IntrerruptRegisters* regs){
+    uint32_t current_saved_esp = ((uint32_t)regs) + 4;
     uint32_t int_no = regs->int_no;
     switch(int_no){
         case 14: { 
@@ -129,8 +130,12 @@ void isr_dispatch(struct IntrerruptRegisters* regs){
            page_fault_handler(regs->err_code, cr2);
             break;
         }
+        case 128: {
+            return syscall_dispatch(regs, current_saved_esp);
+        }
         default:
             common_isr_handler(regs);
             break;
     }
+    return current_saved_esp;
 }

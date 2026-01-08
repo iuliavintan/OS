@@ -14,7 +14,7 @@ static long file_size(const char *path) {
 
 static int usage(const char *prog) {
     fprintf(stderr,
-            "Usage: %s --out <path> --stage2 <path> --kernel <path> --prog <path>\n",
+            "Usage: %s --out <path> --stage2 <path> --kernel <path> --prog1 <path> --prog2 <path>\n",
             prog);
     return 1;
 }
@@ -39,7 +39,8 @@ int main(int argc, char **argv) {
     const char *out = NULL;
     const char *stage2 = NULL;
     const char *kernel = NULL;
-    const char *prog = NULL;
+    const char *prog1 = NULL;
+    const char *prog2 = NULL;
     int i;
 
     for (i = 1; i < argc; i++) {
@@ -49,28 +50,32 @@ int main(int argc, char **argv) {
             stage2 = argv[++i];
         } else if (strcmp(argv[i], "--kernel") == 0 && i + 1 < argc) {
             kernel = argv[++i];
-        } else if (strcmp(argv[i], "--prog") == 0 && i + 1 < argc) {
-            prog = argv[++i];
+        } else if (strcmp(argv[i], "--prog1") == 0 && i + 1 < argc) {
+            prog1 = argv[++i];
+        } else if (strcmp(argv[i], "--prog2") == 0 && i + 1 < argc) {
+            prog2 = argv[++i];
         } else {
             return usage(argv[0]);
         }
     }
 
-    if (!out || !stage2 || !kernel || !prog) {
+    if (!out || !stage2 || !kernel || !prog1 || !prog2) {
         return usage(argv[0]);
     }
 
     long stage2_size = file_size(stage2);
     long kernel_size = file_size(kernel);
-    long prog_size = file_size(prog);
-    if (stage2_size < 0 || kernel_size < 0 || prog_size < 0) {
+    long prog1_size = file_size(prog1);
+    long prog2_size = file_size(prog2);
+    if (stage2_size < 0 || kernel_size < 0 || prog1_size < 0 || prog2_size < 0) {
         fprintf(stderr, "mkfs: stat failed: %s\n", strerror(errno));
         return 1;
     }
 
     unsigned short stage2_sect = (unsigned short)((stage2_size + 511) / 512);
     unsigned short kernel_sect = (unsigned short)((kernel_size + 511) / 512);
-    unsigned short prog_sect = (unsigned short)((prog_size + 511) / 512);
+    unsigned short prog1_sect = (unsigned short)((prog1_size + 511) / 512);
+    unsigned short prog2_sect = (unsigned short)((prog2_size + 511) / 512);
 
     const unsigned int fat_lba = 2;
     const unsigned int root_lba = 3;
@@ -78,8 +83,9 @@ int main(int argc, char **argv) {
 
     unsigned short stage2_start = 2;
     unsigned short kernel_start = (unsigned short)(stage2_start + stage2_sect);
-    unsigned short prog_start = (unsigned short)(kernel_start + kernel_sect);
-    if ((unsigned long)prog_start + prog_sect >= 256) {
+    unsigned short prog1_start = (unsigned short)(kernel_start + kernel_sect);
+    unsigned short prog2_start = (unsigned short)(prog1_start + prog1_sect);
+    if ((unsigned long)prog2_start + prog2_sect >= 256) {
         fprintf(stderr, "mkfs: too many sectors for 1-sector FAT\n");
         return 1;
     }
@@ -133,9 +139,17 @@ int main(int argc, char **argv) {
         fat[clus * 2 + 1] = (unsigned char)((next >> 8) & 0xFF);
     }
 
-    for (i_cluster = 0; i_cluster < prog_sect; i_cluster++) {
-        unsigned short clus = (unsigned short)(prog_start + i_cluster);
-        unsigned short next = (unsigned short)((i_cluster + 1 == prog_sect) ? 0xFFFF
+    for (i_cluster = 0; i_cluster < prog1_sect; i_cluster++) {
+        unsigned short clus = (unsigned short)(prog1_start + i_cluster);
+        unsigned short next = (unsigned short)((i_cluster + 1 == prog1_sect) ? 0xFFFF
+                                                                            : clus + 1);
+        fat[clus * 2] = (unsigned char)(next & 0xFF);
+        fat[clus * 2 + 1] = (unsigned char)((next >> 8) & 0xFF);
+    }
+
+    for (i_cluster = 0; i_cluster < prog2_sect; i_cluster++) {
+        unsigned short clus = (unsigned short)(prog2_start + i_cluster);
+        unsigned short next = (unsigned short)((i_cluster + 1 == prog2_sect) ? 0xFFFF
                                                                             : clus + 1);
         fat[clus * 2] = (unsigned char)(next & 0xFF);
         fat[clus * 2 + 1] = (unsigned char)((next >> 8) & 0xFF);
@@ -144,7 +158,8 @@ int main(int argc, char **argv) {
     unsigned char *root = fs + 1024;
     write_entry(root + 0, "STAGE2", stage2_start);
     write_entry(root + 16, "KERNEL", kernel_start);
-    write_entry(root + 32, "CALC", prog_start);
+    write_entry(root + 32, "U1", prog1_start);
+    write_entry(root + 48, "U2", prog2_start);
 
     FILE *f = fopen(out, "wb");
     if (!f) {

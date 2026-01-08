@@ -4,6 +4,7 @@
 #include "utils/vga.h"
 #include "memory/pmm.h"
 #include "fs/fs.h"
+#include "process.h"
 
 #define SHELL_BUF_SIZE 64
 
@@ -50,7 +51,7 @@ static void read_line(char *buf, int max) {
 }
 
 static void cmd_help(void) {
-    print("help  reboot  clear  ls  mem\n");
+    print("help  reboot  clear  ls  mem  ps  kill  exec\n");
 }
 
 static void cmd_reboot(void) {
@@ -112,26 +113,90 @@ static void cmd_mem(void) {
           total, total_mb, free, free_mb);
 }
 
+static void cmd_ps(void) {
+    process_list();
+}
+
+static void cmd_kill(const char *arg) {
+    if (!arg || *arg == 0) {
+        print("usage: kill <pid>\n");
+        return;
+    }
+    uint32_t pid = 0;
+    while (*arg >= '0' && *arg <= '9') {
+        pid = pid * 10 + (uint32_t)(*arg - '0');
+        arg++;
+    }
+    if (pid == 0) {
+        print("kill: invalid pid\n");
+        return;
+    }
+    process_kill(pid);
+}
+
+static void format_name8(const char *in, char out[9]) {
+    for (int i = 0; i < 8; i++) {
+        out[i] = ' ';
+    }
+    out[8] = 0;
+    int i = 0;
+    while (*in && i < 8) {
+        char c = *in++;
+        if (c >= 'a' && c <= 'z') {
+            c = (char)(c - 32);
+        }
+        out[i++] = c;
+    }
+}
+
+static void cmd_exec(const char *arg) {
+    if (!arg || *arg == 0) {
+        print("usage: exec <prog>\n");
+        return;
+    }
+    char name8[9];
+    format_name8(arg, name8);
+    if (!process_exec(name8)) {
+        print("exec failed\n");
+    }
+}
+
 void shell_run(void) {
     char line[SHELL_BUF_SIZE];
     for (;;) {
         print("> ");
         read_line(line, SHELL_BUF_SIZE);
-        if (line[0] == 0) {
+        char *p = line;
+        while (*p == ' ') p++;
+        if (*p == 0) {
             continue;
         }
-        if (streq(line, "help")) {
+        char *cmd = p;
+        while (*p && *p != ' ') p++;
+        if (*p) {
+            *p++ = 0;
+        }
+        while (*p == ' ') p++;
+        char *arg = p;
+
+        if (streq(cmd, "help")) {
             cmd_help();
-        } else if (streq(line, "reboot")) {
+        } else if (streq(cmd, "reboot")) {
             cmd_reboot();
-        } else if (streq(line, "clear")) {
+        } else if (streq(cmd, "clear")) {
             cmd_clear();
-        } else if (streq(line, "ls")) {
+        } else if (streq(cmd, "ls")) {
             cmd_ls();
-        } else if (streq(line, "mem")) {
+        } else if (streq(cmd, "mem")) {
             cmd_mem();
+        } else if (streq(cmd, "ps")) {
+            cmd_ps();
+        } else if (streq(cmd, "kill")) {
+            cmd_kill(arg);
+        } else if (streq(cmd, "exec")) {
+            cmd_exec(arg);
         } else {
-            print("unknown command: %s\n", line);
+            print("unknown command: %s\n", cmd);
         }
     }
 }

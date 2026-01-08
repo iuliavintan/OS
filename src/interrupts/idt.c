@@ -37,7 +37,7 @@ static void set_isr(){
     set_idt_gate(30 , (uint32_t)isr30 , 0x08, 0x8E);
     set_idt_gate(31 , (uint32_t)isr31 , 0x08, 0x8E);
 
-    set_idt_gate(128 , (uint32_t)isr128 , 0x08, 0x8E); //System calls
+    set_idt_gate(128 , (uint32_t)isr128 , 0x08, 0xEE); //System calls (DPL=3)
     set_idt_gate(177, (uint32_t)isr177 , 0x08, 0x8E); // System calls
 
 }
@@ -101,7 +101,6 @@ void set_idt_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
     idt[num].flags = flags;
     idt[num].base_high = (base >> 16) & 0xFFFF;
 }
-
 
 
 

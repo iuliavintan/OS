@@ -31,11 +31,18 @@ int vmm_map_page(uintptr_t virtual_addr, uintptr_t physical_addr, uint32_t flags
         pt=(uint32_t *)pt_phys;
         memset(pt, 0, PAGE_SIZE);
 
-        kernel_pd[pdi]=(pt_phys & 0xFFFFF000u) | VMM_FLAG_PRESENT |VMM_FLAG_RW;
+        uint32_t pde_flags = VMM_FLAG_PRESENT | VMM_FLAG_RW;
+        if (flags & VMM_FLAG_USER) {
+            pde_flags |= VMM_FLAG_USER;
+        }
+        kernel_pd[pdi]=(pt_phys & 0xFFFFF000u) | pde_flags;
     }
     else{
         uintptr_t pt_phys = pde & 0xFFFFF000u;
         pt=(uint32_t *)pt_phys;
+        if ((flags & VMM_FLAG_USER) && !(pde & VMM_FLAG_USER)) {
+            kernel_pd[pdi] = pde | VMM_FLAG_USER;
+        }
     }
 
     uint32_t entry = (physical_addr & 0xFFFFF000u) | (flags & 0xFFF);

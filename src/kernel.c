@@ -13,6 +13,8 @@
 #include "fs/fs.h"
 #include "shell.h"
 #include "scheduling/sched.h"
+#include "gdt.h"
+#include "process.h"
 
 // #define MEM_TESTS
 // #define KHEAP_TESTS
@@ -46,6 +48,7 @@ void kmain(void)
     // kprint("[KERNEL] Booting...\n");
     kprint("[KERNEL] ");
     print("Booting...\n");
+    gdt_init();
 
     init_idt();
     idt_enable_keyboard();
@@ -98,6 +101,8 @@ void kmain(void)
         kprint("[KERNEL] ");
         print("FS init failed\n");
     }
+
+    process_init();
 
     sched_init(5);             // 5 ticks quantum (~50ms if 100Hz PIT)
     task_create(shell_task, 0);

@@ -1,4 +1,6 @@
 #include "sched.h"
+#include "../gdt.h"
+#include "../process.h"
 
 static task_t *g_runq = NULL;        // circular list 
 static task_t *g_current = NULL;     // currently running task
@@ -81,6 +83,11 @@ task_t* task_create(void (*entry)(void), uint32_t stack_size) {
         print_error("task_create: stack alloc failed\n");
         return NULL;
     }
+    t->kstack_base = t->stack_base;
+    t->kstack_size = t->stack_size;
+    t->kstack_top = (uint32_t)t->stack_base + t->stack_size;
+    t->is_user = 0;
+    t->proc = NULL;
 
     uint32_t top = (uint32_t)t->stack_base + t->stack_size;
 
@@ -109,6 +116,54 @@ task_t* task_create(void (*entry)(void), uint32_t stack_size) {
     return t;
 }
 
+task_t* task_create_user(uint32_t entry, uint32_t user_stack_top) {
+    task_t *t = (task_t*)kmalloc(sizeof(task_t));
+    if (!t) return NULL;
+    memset(t, 0, sizeof(*t));
+
+    t->pid = g_next_pid++;
+    t->state = TASK_READY;
+    t->is_user = 1;
+    t->proc = NULL;
+
+    t->kstack_size = STACK_SIZE_DEFAULT;
+    t->kstack_base = kmalloc(t->kstack_size);
+    if (!t->kstack_base) {
+        print_error("task_create_user: kstack alloc failed\n");
+        return NULL;
+    }
+    t->kstack_top = (uint32_t)t->kstack_base + t->kstack_size;
+
+    uint32_t *stk = (uint32_t *)t->kstack_top;
+
+    *(--stk) = USER_DS;          // ss
+    *(--stk) = user_stack_top;   // user esp
+    *(--stk) = 0x202;            // eflags
+    *(--stk) = USER_CS;          // cs
+    *(--stk) = entry;            // eip
+    *(--stk) = 0;                // err_code
+    *(--stk) = 0;                // int_no
+
+    *(--stk) = 0;                // eax
+    *(--stk) = 0;                // ecx
+    *(--stk) = 0;                // edx
+    *(--stk) = 0;                // ebx
+    *(--stk) = 0;                // esp
+    *(--stk) = 0;                // ebp
+    *(--stk) = 0;                // esi
+    *(--stk) = 0;                // edi
+
+    *(--stk) = USER_DS;          // ds
+    *(--stk) = USER_DS;          // es
+    *(--stk) = USER_DS;          // fs
+    *(--stk) = USER_DS;          // gs
+
+    t->saved_esp = (uint32_t)stk;
+
+    runq_push(t);
+    return t;
+}
+
 uint32_t sched_on_tick(uint32_t current_saved_esp) {
     // If scheduler not enabled yet, keep running current
     if (!g_enabled) return current_saved_esp;
@@ -119,11 +174,15 @@ uint32_t sched_on_tick(uint32_t current_saved_esp) {
     // Save the current context into current task
     g_current->saved_esp = current_saved_esp;
     g_current->state = TASK_READY;
+    if (g_current->proc) {
+        ((process_t *)g_current->proc)->state = PROC_READY;
+    }
 
     if (g_left > 0) g_left--;
     if (g_left != 0) {
         // Continue running current task
         g_current->state = TASK_RUNNING;
+        process_on_tick(g_current);
         return g_current->saved_esp;
     }
 
@@ -139,5 +198,9 @@ uint32_t sched_on_tick(uint32_t current_saved_esp) {
 
     g_current = next;
     g_current->state = TASK_RUNNING;
+    process_on_tick(g_current);
+    if (g_current->kstack_top) {
+        tss_set_kernel_stack(g_current->kstack_top);
+    }
     return g_current->saved_esp;
 }
