@@ -120,10 +120,13 @@ void fs_iterate_root(void (*cb)(const char *name8, uint16_t start_cluster, void 
         uint16_t start = ents[i].start_cluster;
         int empty = 1;
         for (int j = 0; j < 8; j++) {
-            if (name[j] != ' ') {
+            if (name[j] != ' ' && name[j] != 0) {
                 empty = 0;
                 break;
             }
+        }
+        if (empty && start == 0) {
+            break;
         }
         if (empty || start < 2) {
             continue;
