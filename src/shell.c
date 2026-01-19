@@ -11,10 +11,11 @@
 
 #define SHELL_BUF_SIZE 64
 #define HISTORY_MAX 32
+#define TOP_MAX_PROCS 32
 
 static const char *builtin_cmds[] = {
     "help", "reboot", "clear", "ls", "mem", "heap", "heapdemo",
-    "tick", "ps", "kill", "exec", "trace", 0
+    "ps", "kill", "exec", "trace", "top", 0
 };
 
 static char history[HISTORY_MAX][SHELL_BUF_SIZE];
@@ -97,6 +98,22 @@ static const char *completion_first(const char *prefix) {
     return 0;
 }
 
+static const char *state_str(proc_state_t state) {
+    if (state == PROC_RUNNING) return "RUN";
+    if (state == PROC_ZOMBIE) return "ZOMB";
+    return "READY";
+}
+
+static int find_prev_ticks(process_info_t *prev, int prev_count, uint32_t pid, uint32_t *out_ticks) {
+    for (int i = 0; i < prev_count; i++) {
+        if (prev[i].pid == pid) {
+            *out_ticks = prev[i].cpu_ticks;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static const char *completion_next(const char *prefix, const char *current) {
     const char *first = 0;
     int passed = current == 0;
@@ -135,44 +152,6 @@ static const char *completion_next(const char *prefix, const char *current) {
         return first;
     }
     return 0;
-}
-
-static int completion_collect(const char *prefix, const char **out, int max) {
-    int count = 0;
-    if (!prefix || *prefix == 0) {
-        return 0;
-    }
-    for (int i = history_len - 1; i >= 0; i--) {
-        if (!starts_with(history[i], prefix)) {
-            continue;
-        }
-        int dup = 0;
-        for (int j = 0; j < count; j++) {
-            if (streq(out[j], history[i])) {
-                dup = 1;
-                break;
-            }
-        }
-        if (!dup && count < max) {
-            out[count++] = history[i];
-        }
-    }
-    for (int i = 0; builtin_cmds[i]; i++) {
-        if (!starts_with(builtin_cmds[i], prefix)) {
-            continue;
-        }
-        int dup = 0;
-        for (int j = 0; j < count; j++) {
-            if (streq(out[j], builtin_cmds[i])) {
-                dup = 1;
-                break;
-            }
-        }
-        if (!dup && count < max) {
-            out[count++] = builtin_cmds[i];
-        }
-    }
-    return count;
 }
 
 static void line_replace(char *buf, int *len, const char *text) {
@@ -357,7 +336,7 @@ static void read_line(char *buf, int max) {
 }
 
 static void cmd_help(void) {
-    print("help  reboot  clear  ls  mem  heap  heapdemo  tick  ps  kill  exec  trace\n");
+    print("help  reboot  clear  ls  mem  heap  heapdemo  ps  kill  exec  trace  top\n");
 }
 
 static void cmd_reboot(void) {
@@ -453,26 +432,69 @@ static void cmd_heapdemo(const char *arg) {
     print("heapdemo: alloc a=%x c=%x d=%x (hole between a and c)\n", a, c, d);
 }
 
-static void cmd_tick(const char *arg) {
-    if (!arg || *arg == 0) {
-        print("tick is %s\n", tick_get() ? "on" : "off");
-        return;
-    }
-    if (streq(arg, "on")) {
-        tick_set(1);
-        print("tick on\n");
-        return;
-    }
-    if (streq(arg, "off")) {
-        tick_set(0);
-        print("tick off\n");
-        return;
-    }
-    print("usage: tick [on|off]\n");
-}
-
 static void cmd_ps(void) {
     process_list();
+}
+
+static void cmd_top(void) {
+    process_info_t cur[TOP_MAX_PROCS];
+    process_info_t prev[TOP_MAX_PROCS];
+    uint16_t screen[vga_width * vga_height];
+    volatile uint16_t *vga = (uint16_t *)0xB8000;
+    uint16_t saved_x, saved_y;
+    get_cursor_position(&saved_x, &saved_y);
+    for (int i = 0; i < vga_width * vga_height; i++) {
+        screen[i] = vga[i];
+    }
+    int prev_count = 0;
+    uint64_t last_tick = timer_get_ticks();
+    for (;;) {
+        int key = kbd_getchar();
+        if (key >= 0 && (key == 'q' || key == 'Q')) {
+            break;
+        }
+        if (key < 0) {
+            asm volatile("hlt");
+        }
+        uint64_t now = timer_get_ticks();
+        if (now - last_tick < 25) {
+            continue;
+        }
+        last_tick = now;
+        int count = process_snapshot(cur, TOP_MAX_PROCS);
+        reset();
+        update_cursor(0, 0);
+        vga_set_color(COLOUR8_LIGHT_CYAN, COLOUR8_BLACK);
+        print("top  ");
+        vga_reset_color();
+        print("ticks=%d  procs=%d  mem free=%d MB\n",
+              (uint32_t)now,
+              count,
+              (uint32_t)((pmm_available_pages() * PAGE_SIZE) / (1024 * 1024)));
+        print("PID  STATE  CPU  dCPU  NAME\n");
+        for (int i = 0; i < count; i++) {
+            uint32_t prev_ticks = 0;
+            uint32_t delta = 0;
+            if (find_prev_ticks(prev, prev_count, cur[i].pid, &prev_ticks)) {
+                delta = cur[i].cpu_ticks - prev_ticks;
+            }
+            print("%d  %s  %d  %d  %s\n",
+                  cur[i].pid,
+                  state_str(cur[i].state),
+                  cur[i].cpu_ticks,
+                  delta,
+                  cur[i].name);
+        }
+        for (int i = 0; i < count; i++) {
+            prev[i] = cur[i];
+        }
+        prev_count = count;
+        print("\nPress q to exit\n");
+    }
+    for (int i = 0; i < vga_width * vga_height; i++) {
+        vga[i] = screen[i];
+    }
+    update_cursor(saved_x, saved_y);
 }
 
 static void cmd_kill(const char *arg) {
@@ -607,12 +629,12 @@ void shell_run(void) {
             cmd_heap();
         } else if (streq(cmd, "heapdemo")) {
             cmd_heapdemo(arg);
-        } else if (streq(cmd, "tick")) {
-            cmd_tick(arg);
         } else if (streq(cmd, "ps")) {
             cmd_ps();
         } else if (streq(cmd, "kill")) {
             cmd_kill(arg);
+        } else if (streq(cmd, "top")) {
+            cmd_top();
         } else if (streq(cmd, "exec")) {
             cmd_exec(arg);
         } else if (streq(cmd, "trace")) {

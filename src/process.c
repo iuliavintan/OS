@@ -291,6 +291,28 @@ void process_list(void) {
     }
 }
 
+int process_snapshot(process_info_t *out, int max) {
+    if (!out || max <= 0) {
+        return 0;
+    }
+    int count = 0;
+    process_t *p = g_proc_list;
+    while (p && count < max) {
+        out[count].pid = p->pid;
+        out[count].state = p->state;
+        out[count].cpu_ticks = p->cpu_ticks;
+        int i = 0;
+        while (p->name[i] && i < 8) {
+            out[count].name[i] = p->name[i];
+            i++;
+        }
+        out[count].name[i] = 0;
+        count++;
+        p = p->next;
+    }
+    return count;
+}
+
 void process_on_tick(task_t *current) {
     if (!current || !current->proc) {
         return;
