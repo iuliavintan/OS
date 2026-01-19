@@ -217,13 +217,19 @@ static void cmd_exec(const char *arg) {
 }
 
 void shell_print_banner(void) {
+    vga_set_color(COLOUR8_LIGHT_CYAN, COLOUR8_BLACK);
     print("       _                        ___  ____  \n");
     print("__   _(_)_ __ ___   ___  _ __  / _ \\/ ___| \n");
     print("\\ \\ / / | '_ ` _ \\ / _ \\| '_ \\| | | \\___ \\ \n");
     print(" \\ V /| | | | | | | (_) | | | | |_| |___) |\n");
     print("  \\_/ |_|_| |_| |_|\\___/|_| |_|\\___/|____/ \n");
+    vga_reset_color();
     print("\n");
-    print("Welcome to vimonOS\n\n");
+    print("Welcome to vimonOS\n");
+    vga_set_color(COLOUR8_DARK_GREY, COLOUR8_BLACK);
+    print("Type `help` to list commands.\n");
+    vga_reset_color();
+    print("\n");
 }
 
 static void cmd_trace(const char *arg) {
@@ -247,7 +253,10 @@ static void cmd_trace(const char *arg) {
 void shell_run(void) {
     char line[SHELL_BUF_SIZE];
     for (;;) {
-        print("> ");
+        vga_set_color(COLOUR8_LIGHT_CYAN, COLOUR8_BLACK);
+        print("vimonOS");
+        vga_reset_color();
+        print(" > ");
         read_line(line, SHELL_BUF_SIZE);
         char *p = line;
         while (*p == ' ') p++;

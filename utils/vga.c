@@ -14,6 +14,26 @@ uint16_t cursor_x, cursor_y;
 const uint16_t defaultColour_kern = (COLOUR8_LIGHT_MANGENTA<< 8) | (COLOUR8_BLACK<<12);
 uint16_t currentColour_kern = defaultColour_kern; //variable in case we want to change the colour
 
+uint16_t vga_make_color(uint8_t fg, uint8_t bg) {
+    return (uint16_t)((fg << 8) | (bg << 12));
+}
+
+void vga_set_color(uint8_t fg, uint8_t bg) {
+    currentColour = vga_make_color(fg, bg);
+}
+
+void vga_set_kernel_color(uint8_t fg, uint8_t bg) {
+    currentColour_kern = vga_make_color(fg, bg);
+}
+
+void vga_reset_color(void) {
+    currentColour = defaultColour;
+}
+
+void vga_reset_kernel_color(void) {
+    currentColour_kern = defaultColour_kern;
+}
+
 //initialises the screen
 void reset()
 {
