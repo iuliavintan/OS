@@ -146,11 +146,6 @@ void irq1_handler(struct IntrerruptRegisters *r) {
         boolean key_released = sc & 0x80;
         uint8_t keycode = sc & 0x7F;
 
-        if (e0) {
-            e0 = 0;
-            continue;
-        }
-
         if (keycode == 0x2A) {
             left_shift_pressed = !key_released;
             continue;
@@ -169,6 +164,21 @@ void irq1_handler(struct IntrerruptRegisters *r) {
             }
             continue;
         }
+        if (e0) {
+            e0 = 0;
+            if (key_released) {
+                continue;
+            }
+            switch (keycode) {
+                case 0x48: kbd_push_char(KBD_KEY_UP); break;
+                case 0x50: kbd_push_char(KBD_KEY_DOWN); break;
+                case 0x4D: kbd_push_char(KBD_KEY_RIGHT); break;
+                case 0x4B: kbd_push_char(KBD_KEY_LEFT); break;
+                default: break;
+            }
+            continue;
+        }
+
         if (key_released) {
             continue;
         }
