@@ -59,6 +59,10 @@ void OutPortByte(uint16_t port, uint8_t value){
     __asm__ __volatile__ ( "outb %0, %1" : : "a"(value), "Nd"(port) );
 }
 
+void OutPortWord(uint16_t port, uint16_t value){
+    __asm__ __volatile__ ( "outw %0, %1" : : "a"(value), "Nd"(port) );
+}
+
 uint8_t InPortByte(uint16_t port) {
     uint8_t val;
     __asm__ __volatile__("inb %1, %0" : "=a"(val) : "Nd"(port));

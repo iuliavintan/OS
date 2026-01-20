@@ -50,6 +50,7 @@ U1_ELF   := $(BUILDDIR)/u1.elf
 U1_BIN   := $(BINDIR)/u1.bin
 U2_ELF   := $(BUILDDIR)/u2.elf
 U2_BIN   := $(BINDIR)/u2.bin
+NOTE_TXT := assets/note.txt
 
 # ===================== Flags =====================
 CFLAGS   := -m32 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie -O2 -Wall -Wextra -mno-sse -mno-sse2 -mno-mmx -msoft-float -fno-asynchronous-unwind-tables $(C_INCLUDES)
@@ -151,8 +152,8 @@ $(MKFS_TOOL): utils/mkfs.c | dirs
 	$(HOSTCC) $(HOSTCFLAGS) $< -o $@
 
 # Filesystem tables (3 sectors starting at LBA1)
-$(FS_TABLE): $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(MKFS_TOOL) | dirs
-	@$(MKFS_TOOL) --out "$@" --stage2 "$(STAGE2_PAD)" --kernel "$(KERNEL_BIN)" --prog1 "$(U1_ELF)" --prog2 "$(U2_ELF)"
+$(FS_TABLE): $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(NOTE_TXT) $(MKFS_TOOL) | dirs
+	@$(MKFS_TOOL) --out "$@" --stage2 "$(STAGE2_PAD)" --kernel "$(KERNEL_BIN)" --prog1 "$(U1_ELF)" --prog2 "$(U2_ELF)" --note "$(NOTE_TXT)"
 
 # Disk image: [LBA0: stage1][LBA1: fs hdr][LBA2: FAT][LBA3: root][LBA4..: data]
 $(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(FS_TABLE)
@@ -168,7 +169,10 @@ $(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(FS_TABL
 	dd if="$(U1_ELF)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc; \
 	plba=$$(( $$plba + ($$(stat -c%s "$(U1_ELF)") + 511) / 512 )); \
 	echo "Writing u2 at LBA $$plba"; \
-	dd if="$(U2_ELF)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc
+	dd if="$(U2_ELF)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc; \
+	plba=$$(( $$plba + ($$(stat -c%s "$(U2_ELF)") + 511) / 512 )); \
+	echo "Writing note at LBA $$plba"; \
+	dd if="$(NOTE_TXT)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc
 
 run: $(DISK)
 	$(QEMU) -drive file=$(DISK),format=raw -no-shutdown -d int,cpu_reset -m 4G

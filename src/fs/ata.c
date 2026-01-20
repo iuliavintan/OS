@@ -13,6 +13,7 @@
 #define ATA_REG_STATUS     0x07
 
 #define ATA_CMD_READ_SECTORS 0x20
+#define ATA_CMD_WRITE_SECTORS 0x30
 #define ATA_SR_BSY 0x80
 #define ATA_SR_DRQ 0x08
 #define ATA_SR_ERR 0x01
@@ -63,6 +64,35 @@ int ata_pio_read(uint32_t lba, uint8_t count, void *buf) {
             uint16_t data = InPortWord(ATA_PRIMARY_IO + ATA_REG_DATA);
             *dst++ = (uint8_t)(data & 0xFF);
             *dst++ = (uint8_t)((data >> 8) & 0xFF);
+        }
+    }
+    return 0;
+}
+
+int ata_pio_write(uint32_t lba, uint8_t count, const void *buf) {
+    if (count == 0) {
+        return 0;
+    }
+    if (ata_wait_not_busy() != 0) {
+        return -1;
+    }
+
+    OutPortByte(ATA_PRIMARY_IO + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
+    OutPortByte(ATA_PRIMARY_IO + ATA_REG_SECCOUNT0, count);
+    OutPortByte(ATA_PRIMARY_IO + ATA_REG_LBA0, (uint8_t)(lba & 0xFF));
+    OutPortByte(ATA_PRIMARY_IO + ATA_REG_LBA1, (uint8_t)((lba >> 8) & 0xFF));
+    OutPortByte(ATA_PRIMARY_IO + ATA_REG_LBA2, (uint8_t)((lba >> 16) & 0xFF));
+    OutPortByte(ATA_PRIMARY_IO + ATA_REG_COMMAND, ATA_CMD_WRITE_SECTORS);
+
+    const uint8_t *src = (const uint8_t *)buf;
+    for (uint8_t s = 0; s < count; s++) {
+        if (ata_wait_drq() != 0) {
+            return -1;
+        }
+        for (uint16_t i = 0; i < 256; i++) {
+            uint16_t data = (uint16_t)src[0] | ((uint16_t)src[1] << 8);
+            OutPortWord(ATA_PRIMARY_IO + ATA_REG_DATA, data);
+            src += 2;
         }
     }
     return 0;

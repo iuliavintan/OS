@@ -1,0 +1,8 @@
+Welcome to vimonOS nano!
+
+- Ctrl+O : save
+- Ctrl+X : exit
+- Arrow keys to move
+- Backspace to delete
+
+This file is stored on the OS image.

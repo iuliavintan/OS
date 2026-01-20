@@ -12,10 +12,12 @@
 #define SHELL_BUF_SIZE 64
 #define HISTORY_MAX 32
 #define TOP_MAX_PROCS 32
+#define EDIT_BUF_SIZE 2048
+#define EDIT_MAX_LINES 256
 
 static const char *builtin_cmds[] = {
     "help", "reboot", "clear", "ls", "mem", "heap", "heapdemo",
-    "ps", "kill", "exec", "trace", "top", 0
+    "ps", "kill", "exec", "trace", "top", "nano", 0
 };
 
 static char history[HISTORY_MAX][SHELL_BUF_SIZE];
@@ -30,6 +32,18 @@ static int streq(const char *a, const char *b) {
         b++;
     }
     return *a == 0 && *b == 0;
+}
+
+static void str_copy(char *dst, const char *src, int max) {
+    if (!dst || !src || max <= 0) {
+        return;
+    }
+    int i = 0;
+    while (src[i] && i < max - 1) {
+        dst[i] = src[i];
+        i++;
+    }
+    dst[i] = 0;
 }
 
 static int starts_with(const char *s, const char *prefix) {
@@ -336,7 +350,7 @@ static void read_line(char *buf, int max) {
 }
 
 static void cmd_help(void) {
-    print("help  reboot  clear  ls  mem  heap  heapdemo  ps  kill  exec  trace  top\n");
+    print("help  reboot  clear  ls  mem  heap  heapdemo  ps  kill  exec  trace  top  nano\n");
 }
 
 static void cmd_reboot(void) {
@@ -589,6 +603,288 @@ static void cmd_trace(const char *arg) {
     print("usage: trace [on|off]\n");
 }
 
+static int build_line_index(const char *buf, int len, int *starts, int max) {
+    int count = 0;
+    if (max <= 0) {
+        return 0;
+    }
+    starts[count++] = 0;
+    for (int i = 0; i < len && count < max; i++) {
+        if (buf[i] == '\n') {
+            starts[count++] = i + 1;
+        }
+    }
+    return count;
+}
+
+static void cursor_line_col(const int *starts, int lines, int cursor, int *out_line, int *out_col) {
+    int line = 0;
+    for (int i = 0; i < lines; i++) {
+        if (i + 1 == lines || cursor < starts[i + 1]) {
+            line = i;
+            break;
+        }
+    }
+    if (out_line) {
+        *out_line = line;
+    }
+    if (out_col) {
+        *out_col = cursor - starts[line];
+    }
+}
+
+static int line_length(const char *buf, int len, const int *starts, int lines, int line) {
+    int start = starts[line];
+    int end = len;
+    if (line + 1 < lines) {
+        end = starts[line + 1] - 1;
+    }
+    if (end < start) {
+        return 0;
+    }
+    return end - start;
+}
+
+static void editor_status_line(const char *msg) {
+    volatile uint16_t *vga = (uint16_t *)0xB8000;
+    uint16_t attr = vga_make_color(COLOUR8_BLACK, COLOUR8_LIGHT_GREY);
+    int row = vga_height - 1;
+    int col = 0;
+    if (!msg) {
+        msg = "";
+    }
+    while (msg[col] && col < vga_width) {
+        vga[row * vga_width + col] = (uint16_t)msg[col] | attr;
+        col++;
+    }
+    while (col < vga_width) {
+        vga[row * vga_width + col] = (uint16_t)' ' | attr;
+        col++;
+    }
+}
+
+static int editor_wait_key(void) {
+    int key;
+    while ((key = kbd_getchar()) < 0) {
+        asm volatile("hlt");
+    }
+    return key;
+}
+
+static void editor_fill_row(int row, uint8_t fg, uint8_t bg) {
+    volatile uint16_t *vga = (uint16_t *)0xB8000;
+    uint16_t attr = vga_make_color(fg, bg);
+    for (int col = 0; col < vga_width; col++) {
+        vga[row * vga_width + col] = (uint16_t)' ' | attr;
+    }
+}
+
+static void editor_draw_text(int row, int col, uint8_t fg, uint8_t bg, const char *text) {
+    if (!text) {
+        return;
+    }
+    if (row < 0 || row >= vga_height || col >= vga_width) {
+        return;
+    }
+    volatile uint16_t *vga = (uint16_t *)0xB8000;
+    uint16_t attr = vga_make_color(fg, bg);
+    int x = col;
+    while (*text && x < vga_width) {
+        vga[row * vga_width + x] = (uint16_t)*text | attr;
+        text++;
+        x++;
+    }
+}
+
+static void editor_render(const char *name, const char *buf, int len, int cursor,
+                          int scroll_line, int modified, const char *status) {
+    int starts[EDIT_MAX_LINES];
+    int lines = build_line_index(buf, len, starts, EDIT_MAX_LINES);
+    int cur_line = 0;
+    int cur_col = 0;
+    cursor_line_col(starts, lines, cursor, &cur_line, &cur_col);
+
+    editor_fill_row(0, COLOUR8_LIGHT_GREY, COLOUR8_BLACK);
+    editor_draw_text(0, 0, COLOUR8_LIGHT_CYAN, COLOUR8_BLACK, "nano ");
+    editor_draw_text(0, 5, COLOUR8_LIGHT_GREY, COLOUR8_BLACK, name);
+    editor_draw_text(0, 5 + (int)strlen(name), COLOUR8_DARK_GREY, COLOUR8_BLACK,
+                     "  Ctrl+O save  Ctrl+X exit");
+
+    int edit_height = vga_height - 2;
+    for (int row = 0; row < edit_height; row++) {
+        int line = scroll_line + row;
+        if (line < lines) {
+            int start = starts[line];
+            int end = start + line_length(buf, len, starts, lines, line);
+            editor_fill_row(row + 1, COLOUR8_LIGHT_GREY, COLOUR8_BLACK);
+            int col = 0;
+            for (int idx = start; idx < end && col < vga_width; idx++) {
+                editor_draw_text(row + 1, col, COLOUR8_LIGHT_GREY, COLOUR8_BLACK, (char[]){buf[idx], 0});
+                col++;
+            }
+        } else {
+            editor_fill_row(row + 1, COLOUR8_LIGHT_GREY, COLOUR8_BLACK);
+            editor_draw_text(row + 1, 0, COLOUR8_DARK_GREY, COLOUR8_BLACK, "~");
+        }
+    }
+
+    if (status && status[0]) {
+        editor_status_line(status);
+    } else if (modified) {
+        editor_status_line("modified");
+    } else {
+        editor_status_line("ready");
+    }
+
+    int screen_y = 1 + (cur_line - scroll_line);
+    int screen_x = cur_col;
+    if (screen_y < 1) {
+        screen_y = 1;
+    }
+    if (screen_y >= vga_height - 1) {
+        screen_y = vga_height - 2;
+    }
+    if (screen_x < 0) {
+        screen_x = 0;
+    }
+    if (screen_x >= vga_width) {
+        screen_x = vga_width - 1;
+    }
+    update_cursor((uint16_t)screen_x, (uint16_t)screen_y);
+}
+
+static void editor_loop(const char *name, const char *name8, char *buf, int len, uint32_t capacity) {
+    int cursor = len;
+    int scroll_line = 0;
+    int modified = 0;
+    char status[64];
+    status[0] = 0;
+
+    for (;;) {
+        editor_render(name, buf, len, cursor, scroll_line, modified, status);
+        status[0] = 0;
+        int key = editor_wait_key();
+        if (key == 0x18) {
+            break;
+        }
+        if (key == 0x0F) {
+            if (fs_write_file(name8, buf, (uint32_t)len) == 0) {
+                str_copy(status, "saved", (int)sizeof(status));
+                modified = 0;
+            } else {
+                str_copy(status, "save failed", (int)sizeof(status));
+            }
+            continue;
+        }
+
+        int starts[EDIT_MAX_LINES];
+        int lines = build_line_index(buf, len, starts, EDIT_MAX_LINES);
+        int cur_line = 0;
+        int cur_col = 0;
+        cursor_line_col(starts, lines, cursor, &cur_line, &cur_col);
+
+        if (key == KBD_KEY_LEFT) {
+            if (cursor > 0) {
+                cursor--;
+            }
+        } else if (key == KBD_KEY_RIGHT) {
+            if (cursor < len) {
+                cursor++;
+            }
+        } else if (key == KBD_KEY_UP) {
+            if (cur_line > 0) {
+                int prev_len = line_length(buf, len, starts, lines, cur_line - 1);
+                int target = cur_col < prev_len ? cur_col : prev_len;
+                cursor = starts[cur_line - 1] + target;
+            }
+        } else if (key == KBD_KEY_DOWN) {
+            if (cur_line + 1 < lines) {
+                int next_len = line_length(buf, len, starts, lines, cur_line + 1);
+                int target = cur_col < next_len ? cur_col : next_len;
+                cursor = starts[cur_line + 1] + target;
+            }
+        } else if (key == '\b') {
+            if (cursor > 0) {
+                memmove(buf + cursor - 1, buf + cursor, (size_t)(len - cursor));
+                cursor--;
+                len--;
+                buf[len] = 0;
+                modified = 1;
+            }
+        } else if (key == '\n' || key == '\r') {
+            if ((uint32_t)len + 1 < capacity) {
+                memmove(buf + cursor + 1, buf + cursor, (size_t)(len - cursor));
+                buf[cursor++] = '\n';
+                len++;
+                buf[len] = 0;
+                modified = 1;
+            } else {
+                str_copy(status, "buffer full", (int)sizeof(status));
+            }
+        } else if (key >= 32 && key <= 126) {
+            if ((uint32_t)len + 1 < capacity) {
+                memmove(buf + cursor + 1, buf + cursor, (size_t)(len - cursor));
+                buf[cursor++] = (char)key;
+                len++;
+                buf[len] = 0;
+                modified = 1;
+            } else {
+                str_copy(status, "buffer full", (int)sizeof(status));
+            }
+        }
+
+        lines = build_line_index(buf, len, starts, EDIT_MAX_LINES);
+        cursor_line_col(starts, lines, cursor, &cur_line, &cur_col);
+        int edit_height = vga_height - 2;
+        if (cur_line < scroll_line) {
+            scroll_line = cur_line;
+        } else if (cur_line >= scroll_line + edit_height) {
+            scroll_line = cur_line - edit_height + 1;
+        }
+        if (scroll_line < 0) {
+            scroll_line = 0;
+        }
+    }
+}
+
+static void cmd_nano(const char *arg) {
+    if (!fs_ready()) {
+        print("nano: fs not initialized\n");
+        return;
+    }
+    const char *name = (arg && *arg) ? arg : "NOTE";
+    char name8[9];
+    format_name8(name, name8);
+
+    uint32_t capacity = 0;
+    if (fs_file_capacity(name8, &capacity) != 0) {
+        print("nano: file not found\n");
+        return;
+    }
+    if (capacity > EDIT_BUF_SIZE) {
+        print("nano: file too large (max %d bytes)\n", EDIT_BUF_SIZE);
+        return;
+    }
+
+    static char buf[EDIT_BUF_SIZE];
+    memset(buf, 0, sizeof(buf));
+    uint32_t sectors = 0;
+    if (fs_load_file(name8, buf, capacity / 512, &sectors) != 0) {
+        print("nano: load failed\n");
+        return;
+    }
+
+    int len = 0;
+    int max = (int)(sectors * 512);
+    while (len < max && buf[len] != 0) {
+        len++;
+    }
+    editor_loop(name, name8, buf, len, capacity);
+    reset();
+    update_cursor(0, 0);
+    shell_print_banner();
+}
+
 void shell_run(void) {
     char line[SHELL_BUF_SIZE];
     char original[SHELL_BUF_SIZE];
@@ -639,6 +935,8 @@ void shell_run(void) {
             cmd_exec(arg);
         } else if (streq(cmd, "trace")) {
             cmd_trace(arg);
+        } else if (streq(cmd, "nano")) {
+            cmd_nano(arg);
         } else {
             print("unknown command: %s\n", cmd);
         }

@@ -46,6 +46,39 @@ static int name_match(const char *name8, const char entry[8]) {
     return 1;
 }
 
+static int find_start_cluster(const char *name8, uint16_t *out_start) {
+    fs_dirent *ents = (fs_dirent *)g_root;
+    for (uint32_t i = 0; i < (FS_SECTOR_SIZE / sizeof(fs_dirent)); i++) {
+        if (name_match(name8, ents[i].name)) {
+            if (out_start) {
+                *out_start = ents[i].start_cluster;
+            }
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int chain_length(uint16_t start, uint16_t *out_len) {
+    uint16_t *fat = (uint16_t *)g_fat;
+    uint16_t count = 0;
+    uint16_t cluster = start;
+    while (cluster != 0xFFFF) {
+        if (cluster < 2 || cluster >= 256) {
+            return -1;
+        }
+        count++;
+        cluster = fat[cluster];
+        if (count > 254) {
+            return -1;
+        }
+    }
+    if (out_len) {
+        *out_len = count;
+    }
+    return 0;
+}
+
 int fs_init(void) {
     g_fs_ready = 0;
     if (ata_pio_read(FS_HDR_LBA, 1, g_hdr_sector) != 0) {
@@ -69,13 +102,9 @@ int fs_init(void) {
 }
 
 int fs_load_file(const char *name8, void *dest, uint32_t max_sectors, uint32_t *out_sectors) {
-    fs_dirent *ents = (fs_dirent *)g_root;
     uint16_t start = 0;
-    for (uint32_t i = 0; i < (FS_SECTOR_SIZE / sizeof(fs_dirent)); i++) {
-        if (name_match(name8, ents[i].name)) {
-            start = ents[i].start_cluster;
-            break;
-        }
+    if (find_start_cluster(name8, &start) != 0) {
+        return -1;
     }
     if (start < 2) {
         return -1;
@@ -102,6 +131,70 @@ int fs_load_file(const char *name8, void *dest, uint32_t max_sectors, uint32_t *
     }
     if (out_sectors) {
         *out_sectors = count;
+    }
+    return 0;
+}
+
+int fs_file_capacity(const char *name8, uint32_t *out_bytes) {
+    if (!g_fs_ready || !out_bytes) {
+        return -1;
+    }
+    uint16_t start = 0;
+    if (find_start_cluster(name8, &start) != 0 || start < 2) {
+        return -1;
+    }
+    uint16_t count = 0;
+    if (chain_length(start, &count) != 0) {
+        return -1;
+    }
+    *out_bytes = (uint32_t)count * FS_SECTOR_SIZE;
+    return 0;
+}
+
+int fs_write_file(const char *name8, const void *src, uint32_t bytes) {
+    if (!g_fs_ready || !src) {
+        return -1;
+    }
+    uint16_t start = 0;
+    if (find_start_cluster(name8, &start) != 0 || start < 2) {
+        return -1;
+    }
+    uint16_t count = 0;
+    if (chain_length(start, &count) != 0) {
+        return -1;
+    }
+    uint32_t max_bytes = (uint32_t)count * FS_SECTOR_SIZE;
+    if (bytes > max_bytes) {
+        return -1;
+    }
+
+    const uint8_t *src_bytes = (const uint8_t *)src;
+    uint16_t *fat = (uint16_t *)g_fat;
+    uint16_t cluster = start;
+    uint32_t remaining = bytes;
+    uint8_t sector[FS_SECTOR_SIZE];
+    for (uint16_t i = 0; i < count; i++) {
+        uint32_t lba = g_hdr.data_lba + (uint32_t)(cluster - 2);
+        uint32_t copy = remaining < FS_SECTOR_SIZE ? remaining : FS_SECTOR_SIZE;
+        if (copy > 0) {
+            memcpy(sector, src_bytes, copy);
+            if (copy < FS_SECTOR_SIZE) {
+                memset(sector + copy, 0, FS_SECTOR_SIZE - copy);
+            }
+        } else {
+            memset(sector, 0, FS_SECTOR_SIZE);
+        }
+        if (ata_pio_write(lba, 1, sector) != 0) {
+            return -1;
+        }
+        if (remaining > 0) {
+            src_bytes += copy;
+            remaining -= copy;
+        }
+        cluster = fat[cluster];
+        if (cluster == 0xFFFF) {
+            break;
+        }
     }
     return 0;
 }

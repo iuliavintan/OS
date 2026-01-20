@@ -235,6 +235,14 @@ void irq1_handler(struct IntrerruptRegisters *r) {
             }
             continue;
         }
+        if (ctrl_pressed && (c == 'o' || c == 'O')) {
+            kbd_push_char(0x0F);
+            continue;
+        }
+        if (ctrl_pressed && (c == 'x' || c == 'X')) {
+            kbd_push_char(0x18);
+            continue;
+        }
         kbd_push_char((uint8_t)c);
     }
     keyboard_irq_count++;
