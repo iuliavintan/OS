@@ -51,6 +51,7 @@ U1_BIN   := $(BINDIR)/u1.bin
 U2_ELF   := $(BUILDDIR)/u2.elf
 U2_BIN   := $(BINDIR)/u2.bin
 NOTE_TXT := assets/note.txt
+TRACE_TXT := assets/trace.txt
 
 # ===================== Flags =====================
 CFLAGS   := -m32 -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie -O2 -Wall -Wextra -mno-sse -mno-sse2 -mno-mmx -msoft-float -fno-asynchronous-unwind-tables $(C_INCLUDES)
@@ -152,11 +153,11 @@ $(MKFS_TOOL): utils/mkfs.c | dirs
 	$(HOSTCC) $(HOSTCFLAGS) $< -o $@
 
 # Filesystem tables (3 sectors starting at LBA1)
-$(FS_TABLE): $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(NOTE_TXT) $(MKFS_TOOL) | dirs
-	@$(MKFS_TOOL) --out "$@" --stage2 "$(STAGE2_PAD)" --kernel "$(KERNEL_BIN)" --prog1 "$(U1_ELF)" --prog2 "$(U2_ELF)" --note "$(NOTE_TXT)"
+$(FS_TABLE): $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(NOTE_TXT) $(TRACE_TXT) $(MKFS_TOOL) | dirs
+	@$(MKFS_TOOL) --out "$@" --stage2 "$(STAGE2_PAD)" --kernel "$(KERNEL_BIN)" --prog1 "$(U1_ELF)" --prog2 "$(U2_ELF)" --note "$(NOTE_TXT)" --trace "$(TRACE_TXT)"
 
 # Disk image: [LBA0: stage1][LBA1: fs hdr][LBA2: FAT][LBA3: root][LBA4..: data]
-$(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(FS_TABLE)
+$(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(FS_TABLE) $(NOTE_TXT) $(TRACE_TXT)
 	@truncate -s $(DISK_SIZE) "$(DISK)"
 	dd if="$(STAGE1_BIN)" of="$(DISK)" bs=$(SECTOR) seek=0 conv=notrunc
 	dd if="$(FS_TABLE)" of="$(DISK)" bs=$(SECTOR) seek=1 conv=notrunc
@@ -172,7 +173,10 @@ $(DISK): $(STAGE1_BIN) $(STAGE2_PAD) $(KERNEL_BIN) $(U1_ELF) $(U2_ELF) $(FS_TABL
 	dd if="$(U2_ELF)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc; \
 	plba=$$(( $$plba + ($$(stat -c%s "$(U2_ELF)") + 511) / 512 )); \
 	echo "Writing note at LBA $$plba"; \
-	dd if="$(NOTE_TXT)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc
+	dd if="$(NOTE_TXT)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc; \
+	plba=$$(( $$plba + ($$(stat -c%s "$(NOTE_TXT)") + 511) / 512 )); \
+	echo "Writing trace at LBA $$plba"; \
+	dd if="$(TRACE_TXT)" of="$(DISK)" bs=$(SECTOR) seek=$$plba conv=notrunc
 
 run: $(DISK)
 	$(QEMU) -drive file=$(DISK),format=raw -no-shutdown -d int,cpu_reset -m 4G

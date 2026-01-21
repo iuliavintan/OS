@@ -27,7 +27,7 @@ uint32_t sys_gettime(void) {
 
 uint32_t u_strlen(const char *s) {
     uint32_t n = 0;
-    while (s && s[n]) {
+    while (s != NULL && s[n] != 0) {
         n++;
     }
     return n;

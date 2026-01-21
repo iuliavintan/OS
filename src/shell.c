@@ -16,7 +16,7 @@
 #define EDIT_MAX_LINES 256
 
 static const char *builtin_cmds[] = {
-    "help", "reboot", "clear", "ls", "mem", "heap", "heapdemo",
+    "help", "reboot", "clear", "ls", "cat", "mem", "heap", "heapdemo",
     "ps", "kill", "exec", "trace", "top", "nano", 0
 };
 
@@ -24,7 +24,7 @@ static char history[HISTORY_MAX][SHELL_BUF_SIZE];
 static int history_len = 0;
 
 static int streq(const char *a, const char *b) {
-    while (*a && *b) {
+    while (*a != 0 && *b != 0) {
         if (*a != *b) {
             return 0;
         }
@@ -35,11 +35,11 @@ static int streq(const char *a, const char *b) {
 }
 
 static void str_copy(char *dst, const char *src, int max) {
-    if (!dst || !src || max <= 0) {
+    if (dst == NULL || src == NULL || max <= 0) {
         return;
     }
     int i = 0;
-    while (src[i] && i < max - 1) {
+    while (src[i] != 0 && i < max - 1) {
         dst[i] = src[i];
         i++;
     }
@@ -47,7 +47,7 @@ static void str_copy(char *dst, const char *src, int max) {
 }
 
 static int starts_with(const char *s, const char *prefix) {
-    while (*prefix) {
+    while (*prefix != 0) {
         if (*s++ != *prefix++) {
             return 0;
         }
@@ -56,7 +56,7 @@ static int starts_with(const char *s, const char *prefix) {
 }
 
 static void history_add(const char *line) {
-    if (!line || *line == 0) {
+    if (line == NULL || *line == 0) {
         return;
     }
     if (history_len > 0 && streq(history[history_len - 1], line)) {
@@ -64,7 +64,7 @@ static void history_add(const char *line) {
     }
     if (history_len < HISTORY_MAX) {
         int i = 0;
-        while (line[i] && i < SHELL_BUF_SIZE - 1) {
+        while (line[i] != 0 && i < SHELL_BUF_SIZE - 1) {
             history[history_len][i] = line[i];
             i++;
         }
@@ -74,14 +74,14 @@ static void history_add(const char *line) {
     }
     for (int i = 1; i < HISTORY_MAX; i++) {
         int j = 0;
-        while (history[i][j]) {
+        while (history[i][j] != 0) {
             history[i - 1][j] = history[i][j];
             j++;
         }
         history[i - 1][j] = 0;
     }
     int k = 0;
-    while (line[k] && k < SHELL_BUF_SIZE - 1) {
+    while (line[k] != 0 && k < SHELL_BUF_SIZE - 1) {
         history[HISTORY_MAX - 1][k] = line[k];
         k++;
     }
@@ -89,6 +89,11 @@ static void history_add(const char *line) {
 }
 
 static void shell_print_prompt(void) {
+    uint16_t x, y;
+    get_cursor_position(&x, &y);
+    if (y < UI_PROMPT_MIN_ROW) {
+        update_cursor(0, UI_PROMPT_MIN_ROW);
+    }
     vga_set_color(COLOUR8_LIGHT_CYAN, COLOUR8_BLACK);
     print("vimonOS");
     vga_reset_color();
@@ -96,20 +101,20 @@ static void shell_print_prompt(void) {
 }
 
 static const char *completion_first(const char *prefix) {
-    if (!prefix || *prefix == 0) {
-        return 0;
+    if (prefix == NULL || *prefix == 0) {
+        return NULL;
     }
     for (int i = history_len - 1; i >= 0; i--) {
         if (starts_with(history[i], prefix)) {
             return history[i];
         }
     }
-    for (int i = 0; builtin_cmds[i]; i++) {
+    for (int i = 0; builtin_cmds[i] != NULL; i++) {
         if (starts_with(builtin_cmds[i], prefix)) {
             return builtin_cmds[i];
         }
     }
-    return 0;
+    return NULL;
 }
 
 static const char *state_str(proc_state_t state) {
@@ -118,54 +123,44 @@ static const char *state_str(proc_state_t state) {
     return "READY";
 }
 
-static int find_prev_ticks(process_info_t *prev, int prev_count, uint32_t pid, uint32_t *out_ticks) {
-    for (int i = 0; i < prev_count; i++) {
-        if (prev[i].pid == pid) {
-            *out_ticks = prev[i].cpu_ticks;
-            return 1;
-        }
-    }
-    return 0;
-}
-
 static const char *completion_next(const char *prefix, const char *current) {
-    const char *first = 0;
-    int passed = current == 0;
-    if (!prefix || *prefix == 0) {
-        return 0;
+    const char *first = NULL;
+    int passed = current == NULL;
+    if (prefix == NULL || *prefix == 0) {
+        return NULL;
     }
     for (int i = history_len - 1; i >= 0; i--) {
-        if (!starts_with(history[i], prefix)) {
+        if (starts_with(history[i], prefix) == 0) {
             continue;
         }
-        if (!first) {
+        if (first == NULL) {
             first = history[i];
         }
         if (passed) {
             return history[i];
         }
-        if (current && streq(history[i], current)) {
+        if (current != NULL && streq(history[i], current)) {
             passed = 1;
         }
     }
-    for (int i = 0; builtin_cmds[i]; i++) {
-        if (!starts_with(builtin_cmds[i], prefix)) {
+    for (int i = 0; builtin_cmds[i] != NULL; i++) {
+        if (starts_with(builtin_cmds[i], prefix) == 0) {
             continue;
         }
-        if (!first) {
+        if (first == NULL) {
             first = builtin_cmds[i];
         }
         if (passed) {
             return builtin_cmds[i];
         }
-        if (current && streq(builtin_cmds[i], current)) {
+        if (current != NULL && streq(builtin_cmds[i], current)) {
             passed = 1;
         }
     }
-    if (current && first) {
+    if (current != NULL && first != NULL) {
         return first;
     }
-    return 0;
+    return NULL;
 }
 
 static void line_replace(char *buf, int *len, const char *text) {
@@ -174,7 +169,7 @@ static void line_replace(char *buf, int *len, const char *text) {
         (*len)--;
     }
     int i = 0;
-    while (text[i] && i < SHELL_BUF_SIZE - 1) {
+    while (text[i] != 0 && i < SHELL_BUF_SIZE - 1) {
         buf[i] = text[i];
         putc(text[i]);
         i++;
@@ -191,15 +186,16 @@ static void clear_ghost(int last_len) {
         putc(' ');
     }
     uint16_t x, y;
+    uint16_t last = last_len;
     get_cursor_position(&x, &y);
-    if (x >= (uint16_t)last_len) {
-        update_cursor(x - (uint16_t)last_len, y);
+    if (x >= last) {
+        update_cursor(x - last, y);
     }
 }
 
 static int render_ghost(const char *buf, int len) {
     const char *match = completion_first(buf);
-    if (!match) {
+    if (match == NULL) {
         return 0;
     }
     int i = len;
@@ -208,16 +204,17 @@ static int render_ghost(const char *buf, int len) {
         return 0;
     }
     vga_set_color(COLOUR8_DARK_GREY, COLOUR8_BLACK);
-    while (match[i]) {
+    while (match[i] != 0) {
         putc(match[i]);
         ghost_len++;
         i++;
     }
     vga_reset_color();
     uint16_t x, y;
+    uint16_t ghost = ghost_len;
     get_cursor_position(&x, &y);
-    if (x >= (uint16_t)ghost_len) {
-        update_cursor(x - (uint16_t)ghost_len, y);
+    if (x >= ghost) {
+        update_cursor(x - ghost, y);
     }
     return ghost_len;
 }
@@ -228,7 +225,7 @@ static void read_line(char *buf, int max) {
     int browsing = 0;
     char saved[SHELL_BUF_SIZE];
     char completion_prefix[SHELL_BUF_SIZE];
-    const char *completion_current = 0;
+    const char *completion_current = NULL;
     completion_prefix[0] = 0;
     int last_ghost = 0;
     for (;;) {
@@ -254,7 +251,7 @@ static void read_line(char *buf, int max) {
             }
             browsing = 0;
             hist_index = history_len;
-            completion_current = 0;
+            completion_current = NULL;
             completion_prefix[0] = 0;
             last_ghost = render_ghost(buf, len);
             continue;
@@ -262,9 +259,9 @@ static void read_line(char *buf, int max) {
         if (key == KBD_KEY_UP || key == KBD_KEY_DOWN) {
             clear_ghost(last_ghost);
             last_ghost = 0;
-            if (!browsing) {
+            if (browsing == 0) {
                 int i = 0;
-                while (buf[i] && i < SHELL_BUF_SIZE - 1) {
+                while (buf[i] != 0 && i < SHELL_BUF_SIZE - 1) {
                     saved[i] = buf[i];
                     i++;
                 }
@@ -289,7 +286,7 @@ static void read_line(char *buf, int max) {
                     browsing = 0;
                 }
             }
-            completion_current = 0;
+            completion_current = NULL;
             completion_prefix[0] = 0;
             last_ghost = render_ghost(buf, len);
             continue;
@@ -297,10 +294,10 @@ static void read_line(char *buf, int max) {
         if (key == KBD_KEY_RIGHT) {
             clear_ghost(last_ghost);
             last_ghost = 0;
-            completion_current = 0;
+            completion_current = NULL;
             completion_prefix[0] = 0;
             const char *match = completion_first(buf);
-            if (match) {
+            if (match != NULL) {
                 line_replace(buf, &len, match);
             }
             browsing = 0;
@@ -313,14 +310,14 @@ static void read_line(char *buf, int max) {
             last_ghost = 0;
             if (completion_prefix[0] == 0) {
                 int i = 0;
-                while (buf[i] && i < SHELL_BUF_SIZE - 1) {
+                while (buf[i] != 0 && i < SHELL_BUF_SIZE - 1) {
                     completion_prefix[i] = buf[i];
                     i++;
                 }
                 completion_prefix[i] = 0;
             }
             completion_current = completion_next(completion_prefix, completion_current);
-            if (completion_current) {
+            if (completion_current != NULL) {
                 line_replace(buf, &len, completion_current);
             }
             browsing = 0;
@@ -337,20 +334,20 @@ static void read_line(char *buf, int max) {
         if (len < max - 1) {
             clear_ghost(last_ghost);
             last_ghost = 0;
-            buf[len++] = (char)key;
+            buf[len++] = key;
             buf[len] = 0;
-            putc((char)key);
+            putc(key);
         }
         browsing = 0;
         hist_index = history_len;
-        completion_current = 0;
+        completion_current = NULL;
         completion_prefix[0] = 0;
         last_ghost = render_ghost(buf, len);
     }
 }
 
 static void cmd_help(void) {
-    print("help  reboot  clear  ls  mem  heap  heapdemo  ps  kill  exec  trace  top  nano\n");
+    print("help  reboot  clear  ls  cat  mem  heap  heapdemo  ps  kill  exec  trace  top  nano\n");
 }
 
 static void cmd_reboot(void) {
@@ -376,7 +373,7 @@ struct ls_ctx {
 
 static void ls_cb(const char *name8, uint16_t start, void *ctx) {
     (void)start;
-    struct ls_ctx *ls = (struct ls_ctx *)ctx;
+    struct ls_ctx *ls = ctx;
     char name[9];
     int n = 0;
     for (int i = 0; i < 8; i++) {
@@ -396,7 +393,7 @@ static void ls_cb(const char *name8, uint16_t start, void *ctx) {
 }
 
 static void cmd_ls(void) {
-    if (!fs_ready()) {
+    if (fs_ready() == 0) {
         print("fs not initialized\n");
         return;
     }
@@ -408,8 +405,8 @@ static void cmd_ls(void) {
 }
 
 static void cmd_mem(void) {
-    uint32_t total = (uint32_t)pmm_total_pages();
-    uint32_t free = (uint32_t)pmm_available_pages();
+    uint32_t total = pmm_total_pages();
+    uint32_t free = pmm_available_pages();
     uint32_t total_mb = (total * PAGE_SIZE) / (1024 * 1024);
     uint32_t free_mb = (free * PAGE_SIZE) / (1024 * 1024);
     print("mem: total=%d pages (%d MB) free=%d pages (%d MB)\n",
@@ -425,15 +422,15 @@ static void cmd_heapdemo(const char *arg) {
     static void *b;
     static void *c;
     static void *d;
-    if (arg && streq(arg, "free")) {
-        if (a) { kfree(a); a = NULL; }
-        if (b) { kfree(b); b = NULL; }
-        if (c) { kfree(c); c = NULL; }
-        if (d) { kfree(d); d = NULL; }
+    if (arg != NULL && streq(arg, "free")) {
+        if (a != NULL) { kfree(a); a = NULL; }
+        if (b != NULL) { kfree(b); b = NULL; }
+        if (c != NULL) { kfree(c); c = NULL; }
+        if (d != NULL) { kfree(d); d = NULL; }
         print("heapdemo: freed\n");
         return;
     }
-    if (a || b || c || d) {
+    if (a != NULL || b != NULL || c != NULL || d != NULL) {
         print("heapdemo: already allocated, use `heapdemo free`\n");
         return;
     }
@@ -452,7 +449,6 @@ static void cmd_ps(void) {
 
 static void cmd_top(void) {
     process_info_t cur[TOP_MAX_PROCS];
-    process_info_t prev[TOP_MAX_PROCS];
     uint16_t screen[vga_width * vga_height];
     volatile uint16_t *vga = (uint16_t *)0xB8000;
     uint16_t saved_x, saved_y;
@@ -460,7 +456,6 @@ static void cmd_top(void) {
     for (int i = 0; i < vga_width * vga_height; i++) {
         screen[i] = vga[i];
     }
-    int prev_count = 0;
     uint64_t last_tick = timer_get_ticks();
     for (;;) {
         int key = kbd_getchar();
@@ -481,28 +476,22 @@ static void cmd_top(void) {
         vga_set_color(COLOUR8_LIGHT_CYAN, COLOUR8_BLACK);
         print("top  ");
         vga_reset_color();
-        print("ticks=%d  procs=%d  mem free=%d MB\n",
-              (uint32_t)now,
-              count,
-              (uint32_t)((pmm_available_pages() * PAGE_SIZE) / (1024 * 1024)));
-        print("PID  STATE  CPU  dCPU  NAME\n");
+        {
+            uint32_t now32 = now;
+            uint32_t free_mb = (pmm_available_pages() * PAGE_SIZE) / (1024 * 1024);
+            print("ticks=%d  procs=%d  mem free=%d MB\n",
+                  now32,
+                  count,
+                  free_mb);
+        }
+        print("PID  STATE  CPU  NAME\n");
         for (int i = 0; i < count; i++) {
-            uint32_t prev_ticks = 0;
-            uint32_t delta = 0;
-            if (find_prev_ticks(prev, prev_count, cur[i].pid, &prev_ticks)) {
-                delta = cur[i].cpu_ticks - prev_ticks;
-            }
-            print("%d  %s  %d  %d  %s\n",
+            print("%d  %s  %d  %s\n",
                   cur[i].pid,
                   state_str(cur[i].state),
                   cur[i].cpu_ticks,
-                  delta,
                   cur[i].name);
         }
-        for (int i = 0; i < count; i++) {
-            prev[i] = cur[i];
-        }
-        prev_count = count;
         print("\nPress q to exit\n");
     }
     for (int i = 0; i < vga_width * vga_height; i++) {
@@ -512,13 +501,13 @@ static void cmd_top(void) {
 }
 
 static void cmd_kill(const char *arg) {
-    if (!arg || *arg == 0) {
+    if (arg == NULL || *arg == 0) {
         print("usage: kill <pid>\n");
         return;
     }
     uint32_t pid = 0;
     while (*arg >= '0' && *arg <= '9') {
-        pid = pid * 10 + (uint32_t)(*arg - '0');
+        pid = pid * 10 + (*arg - '0');
         arg++;
     }
     if (pid == 0) {
@@ -534,23 +523,64 @@ static void format_name8(const char *in, char out[9]) {
     }
     out[8] = 0;
     int i = 0;
-    while (*in && i < 8) {
+    while (*in != 0 && i < 8) {
         char c = *in++;
         if (c >= 'a' && c <= 'z') {
-            c = (char)(c - 32);
+            c = c - 32;
         }
         out[i++] = c;
     }
 }
 
+static void cmd_cat(const char *arg) {
+    if (fs_ready() == 0) {
+        print("cat: fs not initialized\n");
+        return;
+    }
+    if (arg == NULL || *arg == 0) {
+        print("usage: cat <file>\n");
+        return;
+    }
+    char name8[9];
+    format_name8(arg, name8);
+    uint32_t capacity = 0;
+    if (fs_file_capacity(name8, &capacity) != 0) {
+        print("cat: file not found\n");
+        return;
+    }
+    if (capacity == 0) {
+        return;
+    }
+    char *buf = kmalloc(capacity + 1);
+    if (buf == NULL) {
+        print("cat: out of memory\n");
+        return;
+    }
+    uint32_t sectors = 0;
+    if (fs_load_file(name8, buf, capacity / 512, &sectors) != 0) {
+        print("cat: load failed\n");
+        kfree(buf);
+        return;
+    }
+    uint32_t max = sectors * 512;
+    uint32_t len = 0;
+    while (len < max && buf[len] != 0) {
+        len++;
+    }
+    for (uint32_t i = 0; i < len; i++) {
+        putc(buf[i]);
+    }
+    kfree(buf);
+}
+
 static void cmd_exec(const char *arg) {
-    if (!arg || *arg == 0) {
+    if (arg == NULL || *arg == 0) {
         print("usage: exec <prog>\n");
         return;
     }
     char name8[9];
     format_name8(arg, name8);
-    if (!process_exec(name8)) {
+    if (process_exec(name8) == NULL) {
         print("exec failed\n");
     }
 }
@@ -586,8 +616,12 @@ void shell_print_banner(void) {
 }
 
 static void cmd_trace(const char *arg) {
-    if (!arg || *arg == 0) {
-        print("trace is %s\n", trace_get() ? "on" : "off");
+    if (arg == NULL || *arg == 0) {
+        const char *state = "off";
+        if (trace_get() != 0) {
+            state = "on";
+        }
+        print("trace is %s\n", state);
         return;
     }
     if (streq(arg, "on")) {
@@ -625,10 +659,10 @@ static void cursor_line_col(const int *starts, int lines, int cursor, int *out_l
             break;
         }
     }
-    if (out_line) {
+    if (out_line != NULL) {
         *out_line = line;
     }
-    if (out_col) {
+    if (out_col != NULL) {
         *out_col = cursor - starts[line];
     }
 }
@@ -650,15 +684,17 @@ static void editor_status_line(const char *msg) {
     uint16_t attr = vga_make_color(COLOUR8_BLACK, COLOUR8_LIGHT_GREY);
     int row = vga_height - 1;
     int col = 0;
-    if (!msg) {
+    if (msg == NULL) {
         msg = "";
     }
-    while (msg[col] && col < vga_width) {
-        vga[row * vga_width + col] = (uint16_t)msg[col] | attr;
+    while (msg[col] != 0 && col < vga_width) {
+        uint16_t ch = msg[col];
+        vga[row * vga_width + col] = ch | attr;
         col++;
     }
     while (col < vga_width) {
-        vga[row * vga_width + col] = (uint16_t)' ' | attr;
+        uint16_t ch = ' ';
+        vga[row * vga_width + col] = ch | attr;
         col++;
     }
 }
@@ -675,12 +711,13 @@ static void editor_fill_row(int row, uint8_t fg, uint8_t bg) {
     volatile uint16_t *vga = (uint16_t *)0xB8000;
     uint16_t attr = vga_make_color(fg, bg);
     for (int col = 0; col < vga_width; col++) {
-        vga[row * vga_width + col] = (uint16_t)' ' | attr;
+        uint16_t ch = ' ';
+        vga[row * vga_width + col] = ch | attr;
     }
 }
 
 static void editor_draw_text(int row, int col, uint8_t fg, uint8_t bg, const char *text) {
-    if (!text) {
+    if (text == NULL) {
         return;
     }
     if (row < 0 || row >= vga_height || col >= vga_width) {
@@ -689,8 +726,9 @@ static void editor_draw_text(int row, int col, uint8_t fg, uint8_t bg, const cha
     volatile uint16_t *vga = (uint16_t *)0xB8000;
     uint16_t attr = vga_make_color(fg, bg);
     int x = col;
-    while (*text && x < vga_width) {
-        vga[row * vga_width + x] = (uint16_t)*text | attr;
+    while (*text != 0 && x < vga_width) {
+        uint16_t ch = *text;
+        vga[row * vga_width + x] = ch | attr;
         text++;
         x++;
     }
@@ -703,11 +741,12 @@ static void editor_render(const char *name, const char *buf, int len, int cursor
     int cur_line = 0;
     int cur_col = 0;
     cursor_line_col(starts, lines, cursor, &cur_line, &cur_col);
+    int name_len = strlen(name);
 
     editor_fill_row(0, COLOUR8_LIGHT_GREY, COLOUR8_BLACK);
     editor_draw_text(0, 0, COLOUR8_LIGHT_CYAN, COLOUR8_BLACK, "nano ");
     editor_draw_text(0, 5, COLOUR8_LIGHT_GREY, COLOUR8_BLACK, name);
-    editor_draw_text(0, 5 + (int)strlen(name), COLOUR8_DARK_GREY, COLOUR8_BLACK,
+    editor_draw_text(0, 5 + name_len, COLOUR8_DARK_GREY, COLOUR8_BLACK,
                      "  Ctrl+O save  Ctrl+X exit");
 
     int edit_height = vga_height - 2;
@@ -728,9 +767,9 @@ static void editor_render(const char *name, const char *buf, int len, int cursor
         }
     }
 
-    if (status && status[0]) {
+    if (status != NULL && status[0] != 0) {
         editor_status_line(status);
-    } else if (modified) {
+    } else if (modified != 0) {
         editor_status_line("modified");
     } else {
         editor_status_line("ready");
@@ -750,7 +789,11 @@ static void editor_render(const char *name, const char *buf, int len, int cursor
     if (screen_x >= vga_width) {
         screen_x = vga_width - 1;
     }
-    update_cursor((uint16_t)screen_x, (uint16_t)screen_y);
+    {
+        uint16_t cursor_x = screen_x;
+        uint16_t cursor_y = screen_y;
+        update_cursor(cursor_x, cursor_y);
+    }
 }
 
 static void editor_loop(const char *name, const char *name8, char *buf, int len, uint32_t capacity) {
@@ -758,6 +801,7 @@ static void editor_loop(const char *name, const char *name8, char *buf, int len,
     int scroll_line = 0;
     int modified = 0;
     char status[64];
+    int status_size = sizeof(status);
     status[0] = 0;
 
     for (;;) {
@@ -768,11 +812,12 @@ static void editor_loop(const char *name, const char *name8, char *buf, int len,
             break;
         }
         if (key == 0x0F) {
-            if (fs_write_file(name8, buf, (uint32_t)len) == 0) {
-                str_copy(status, "saved", (int)sizeof(status));
+            uint32_t len_u = len;
+            if (fs_write_file(name8, buf, len_u) == 0) {
+                str_copy(status, "saved", status_size);
                 modified = 0;
             } else {
-                str_copy(status, "save failed", (int)sizeof(status));
+                str_copy(status, "save failed", status_size);
             }
             continue;
         }
@@ -794,42 +839,53 @@ static void editor_loop(const char *name, const char *name8, char *buf, int len,
         } else if (key == KBD_KEY_UP) {
             if (cur_line > 0) {
                 int prev_len = line_length(buf, len, starts, lines, cur_line - 1);
-                int target = cur_col < prev_len ? cur_col : prev_len;
+                int target = prev_len;
+                if (cur_col < prev_len) {
+                    target = cur_col;
+                }
                 cursor = starts[cur_line - 1] + target;
             }
         } else if (key == KBD_KEY_DOWN) {
             if (cur_line + 1 < lines) {
                 int next_len = line_length(buf, len, starts, lines, cur_line + 1);
-                int target = cur_col < next_len ? cur_col : next_len;
+                int target = next_len;
+                if (cur_col < next_len) {
+                    target = cur_col;
+                }
                 cursor = starts[cur_line + 1] + target;
             }
         } else if (key == '\b') {
             if (cursor > 0) {
-                memmove(buf + cursor - 1, buf + cursor, (size_t)(len - cursor));
+                int move = len - cursor;
+                memmove(buf + cursor - 1, buf + cursor, move);
                 cursor--;
                 len--;
                 buf[len] = 0;
                 modified = 1;
             }
         } else if (key == '\n' || key == '\r') {
-            if ((uint32_t)len + 1 < capacity) {
-                memmove(buf + cursor + 1, buf + cursor, (size_t)(len - cursor));
+            uint32_t len_u = len;
+            if (len_u + 1 < capacity) {
+                int move = len - cursor;
+                memmove(buf + cursor + 1, buf + cursor, move);
                 buf[cursor++] = '\n';
                 len++;
                 buf[len] = 0;
                 modified = 1;
             } else {
-                str_copy(status, "buffer full", (int)sizeof(status));
+                str_copy(status, "buffer full", status_size);
             }
         } else if (key >= 32 && key <= 126) {
-            if ((uint32_t)len + 1 < capacity) {
-                memmove(buf + cursor + 1, buf + cursor, (size_t)(len - cursor));
-                buf[cursor++] = (char)key;
+            uint32_t len_u = len;
+            if (len_u + 1 < capacity) {
+                int move = len - cursor;
+                memmove(buf + cursor + 1, buf + cursor, move);
+                buf[cursor++] = key;
                 len++;
                 buf[len] = 0;
                 modified = 1;
             } else {
-                str_copy(status, "buffer full", (int)sizeof(status));
+                str_copy(status, "buffer full", status_size);
             }
         }
 
@@ -848,11 +904,14 @@ static void editor_loop(const char *name, const char *name8, char *buf, int len,
 }
 
 static void cmd_nano(const char *arg) {
-    if (!fs_ready()) {
+    if (fs_ready() == 0) {
         print("nano: fs not initialized\n");
         return;
     }
-    const char *name = (arg && *arg) ? arg : "NOTE";
+    const char *name = "NOTE";
+    if (arg != NULL && *arg != 0) {
+        name = arg;
+    }
     char name8[9];
     format_name8(name, name8);
 
@@ -875,7 +934,7 @@ static void cmd_nano(const char *arg) {
     }
 
     int len = 0;
-    int max = (int)(sectors * 512);
+    int max = sectors * 512;
     while (len < max && buf[len] != 0) {
         len++;
     }
@@ -919,6 +978,8 @@ void shell_run(void) {
             cmd_clear();
         } else if (streq(cmd, "ls")) {
             cmd_ls();
+        } else if (streq(cmd, "cat")) {
+            cmd_cat(arg);
         } else if (streq(cmd, "mem")) {
             cmd_mem();
         } else if (streq(cmd, "heap")) {

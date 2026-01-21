@@ -30,10 +30,10 @@ static int ata_wait_not_busy(void) {
 static int ata_wait_drq(void) {
     for (uint32_t i = 0; i < 100000; i++) {
         uint8_t st = InPortByte(ATA_PRIMARY_IO + ATA_REG_STATUS);
-        if (st & ATA_SR_ERR) {
+        if ((st & ATA_SR_ERR) != 0) {
             return -1;
         }
-        if ((st & ATA_SR_BSY) == 0 && (st & ATA_SR_DRQ)) {
+        if ((st & ATA_SR_BSY) == 0 && (st & ATA_SR_DRQ) != 0) {
             return 0;
         }
     }
@@ -41,6 +41,9 @@ static int ata_wait_drq(void) {
 }
 
 int ata_pio_read(uint32_t lba, uint8_t count, void *buf) {
+    if (buf == NULL) {
+        return -1;
+    }
     if (count == 0) {
         return 0;
     }
@@ -70,6 +73,9 @@ int ata_pio_read(uint32_t lba, uint8_t count, void *buf) {
 }
 
 int ata_pio_write(uint32_t lba, uint8_t count, const void *buf) {
+    if (buf == NULL) {
+        return -1;
+    }
     if (count == 0) {
         return 0;
     }

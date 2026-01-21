@@ -23,6 +23,10 @@
 #define vga_width 80
 #define vga_height 25
 
+#define UI_STATUS_ROW 8
+#define UI_STATUS_ROWS 2
+#define UI_PROMPT_MIN_ROW (UI_STATUS_ROW + UI_STATUS_ROWS)
+
 void print(const char* s,...);
 void scroll_up();
 void new_line();

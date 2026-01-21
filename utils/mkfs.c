@@ -14,7 +14,7 @@ static long file_size(const char *path) {
 
 static int usage(const char *prog) {
     fprintf(stderr,
-            "Usage: %s --out <path> --stage2 <path> --kernel <path> --prog1 <path> --prog2 <path> --note <path>\n",
+            "Usage: %s --out <path> --stage2 <path> --kernel <path> --prog1 <path> --prog2 <path> --note <path> --trace <path>\n",
             prog);
     return 1;
 }
@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
     const char *prog1 = NULL;
     const char *prog2 = NULL;
     const char *note = NULL;
+    const char *trace = NULL;
     int i;
 
     for (i = 1; i < argc; i++) {
@@ -57,12 +58,14 @@ int main(int argc, char **argv) {
             prog2 = argv[++i];
         } else if (strcmp(argv[i], "--note") == 0 && i + 1 < argc) {
             note = argv[++i];
+        } else if (strcmp(argv[i], "--trace") == 0 && i + 1 < argc) {
+            trace = argv[++i];
         } else {
             return usage(argv[0]);
         }
     }
 
-    if (!out || !stage2 || !kernel || !prog1 || !prog2 || !note) {
+    if (!out || !stage2 || !kernel || !prog1 || !prog2 || !note || !trace) {
         return usage(argv[0]);
     }
 
@@ -71,7 +74,8 @@ int main(int argc, char **argv) {
     long prog1_size = file_size(prog1);
     long prog2_size = file_size(prog2);
     long note_size = file_size(note);
-    if (stage2_size < 0 || kernel_size < 0 || prog1_size < 0 || prog2_size < 0 || note_size < 0) {
+    long trace_size = file_size(trace);
+    if (stage2_size < 0 || kernel_size < 0 || prog1_size < 0 || prog2_size < 0 || note_size < 0 || trace_size < 0) {
         fprintf(stderr, "mkfs: stat failed: %s\n", strerror(errno));
         return 1;
     }
@@ -81,6 +85,7 @@ int main(int argc, char **argv) {
     unsigned short prog1_sect = (unsigned short)((prog1_size + 511) / 512);
     unsigned short prog2_sect = (unsigned short)((prog2_size + 511) / 512);
     unsigned short note_sect = (unsigned short)((note_size + 511) / 512);
+    unsigned short trace_sect = (unsigned short)((trace_size + 511) / 512);
 
     const unsigned int fat_lba = 2;
     const unsigned int root_lba = 3;
@@ -91,7 +96,8 @@ int main(int argc, char **argv) {
     unsigned short prog1_start = (unsigned short)(kernel_start + kernel_sect);
     unsigned short prog2_start = (unsigned short)(prog1_start + prog1_sect);
     unsigned short note_start = (unsigned short)(prog2_start + prog2_sect);
-    if ((unsigned long)note_start + note_sect >= 256) {
+    unsigned short trace_start = (unsigned short)(note_start + note_sect);
+    if ((unsigned long)trace_start + trace_sect >= 256) {
         fprintf(stderr, "mkfs: too many sectors for 1-sector FAT\n");
         return 1;
     }
@@ -169,12 +175,21 @@ int main(int argc, char **argv) {
         fat[clus * 2 + 1] = (unsigned char)((next >> 8) & 0xFF);
     }
 
+    for (i_cluster = 0; i_cluster < trace_sect; i_cluster++) {
+        unsigned short clus = (unsigned short)(trace_start + i_cluster);
+        unsigned short next = (unsigned short)((i_cluster + 1 == trace_sect) ? 0xFFFF
+                                                                            : clus + 1);
+        fat[clus * 2] = (unsigned char)(next & 0xFF);
+        fat[clus * 2 + 1] = (unsigned char)((next >> 8) & 0xFF);
+    }
+
     unsigned char *root = fs + 1024;
     write_entry(root + 0, "STAGE2", stage2_start);
     write_entry(root + 16, "KERNEL", kernel_start);
     write_entry(root + 32, "U1", prog1_start);
     write_entry(root + 48, "U2", prog2_start);
     write_entry(root + 64, "NOTE", note_start);
+    write_entry(root + 80, "TRACE", trace_start);
 
     FILE *f = fopen(out, "wb");
     if (!f) {

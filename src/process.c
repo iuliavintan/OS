@@ -48,7 +48,9 @@ void process_init(void) {
 }
 
 static int elf_valid(const Elf32_Ehdr *eh) {
-    if (!eh) return 0;
+    if (eh == NULL) {
+        return 0;
+    }
     if (eh->e_ident[0] != 0x7F || eh->e_ident[1] != 'E' ||
         eh->e_ident[2] != 'L'  || eh->e_ident[3] != 'F') {
         return 0;
@@ -67,7 +69,7 @@ static int map_user_range(uint32_t *pd, uint32_t vaddr, uint32_t size, uint32_t 
     uint32_t end = (vaddr + size + 0xFFFu) & 0xFFFFF000u;
     for (uint32_t va = start; va < end; va += PAGE_SIZE) {
         uintptr_t frame = pmm_alloc_page();
-        if (!frame) {
+        if (frame == 0) {
             return -1;
         }
         if (vmm_map_page_pd(pd, va, frame, flags) != 0) {
@@ -82,8 +84,8 @@ static int load_elf_from_fs(const char *name8, uint32_t *entry_out,
     uint32_t sectors = 0;
     uint32_t max_sectors = 256;
     uint32_t buf_bytes = max_sectors * 512;
-    uint8_t *buf = (uint8_t *)kmalloc(buf_bytes);
-    if (!buf) {
+    uint8_t *buf = kmalloc(buf_bytes);
+    if (buf == NULL) {
         print("exec: out of memory\n");
         return -1;
     }
@@ -100,7 +102,7 @@ static int load_elf_from_fs(const char *name8, uint32_t *entry_out,
     }
 
     Elf32_Ehdr *eh = (Elf32_Ehdr *)buf;
-    if (!elf_valid(eh)) {
+    if (elf_valid(eh) == 0) {
         kfree(buf);
         return -1;
     }
@@ -156,7 +158,7 @@ static int load_elf_from_fs(const char *name8, uint32_t *entry_out,
 }
 
 static void free_user_address_space(task_t *t) {
-    if (!t || !t->page_dir_phys) {
+    if (t == NULL || t->page_dir_phys == 0) {
         return;
     }
     if (t->page_dir_phys == vmm_kernel_pd_phys()) {
@@ -167,13 +169,13 @@ static void free_user_address_space(task_t *t) {
     uint32_t user_pdi_end = (USER_STACK_TOP - 1) >> 22;
     for (uint32_t pdi = user_pdi_start; pdi <= user_pdi_end; pdi++) {
         uint32_t pde = pd[pdi];
-        if (!(pde & VMM_FLAG_PRESENT)) {
-            continue;
-        }
+    if ((pde & VMM_FLAG_PRESENT) == 0) {
+        continue;
+    }
         uint32_t *pt = (uint32_t *)(pde & 0xFFFFF000u);
         for (uint32_t pti = 0; pti < 1024; pti++) {
             uint32_t pte = pt[pti];
-            if (pte & VMM_FLAG_PRESENT) {
+            if ((pte & VMM_FLAG_PRESENT) != 0) {
                 uintptr_t frame = pte & 0xFFFFF000u;
                 pmm_free_page(frame);
             }
@@ -186,14 +188,14 @@ static void free_user_address_space(task_t *t) {
 }
 
 process_t *process_exec(const char *name8) {
-    if (!fs_ready()) {
+    if (fs_ready() == 0) {
         print("exec: fs not ready\n");
         return NULL;
     }
 
     uintptr_t pd_phys = 0;
     uint32_t *pd = vmm_create_user_pd(&pd_phys);
-    if (!pd) {
+    if (pd == NULL) {
         print("exec: pd alloc failed\n");
         return NULL;
     }
@@ -216,13 +218,13 @@ process_t *process_exec(const char *name8) {
     }
 
     task_t *t = task_create_user(entry, USER_STACK_TOP);
-    if (!t) {
+    if (t == NULL) {
         print("exec: task create failed\n");
         return NULL;
     }
 
     process_t *p = (process_t *)kmalloc(sizeof(process_t));
-    if (!p) {
+    if (p == NULL) {
         print("exec: out of memory\n");
         return NULL;
     }
@@ -257,7 +259,7 @@ void process_kill(uint32_t pid) {
 }
 
 void process_reap_task(task_t *t) {
-    if (!t) {
+    if (t == NULL) {
         return;
     }
     process_t *prev = NULL;
@@ -292,7 +294,7 @@ void process_list(void) {
 }
 
 int process_snapshot(process_info_t *out, int max) {
-    if (!out || max <= 0) {
+    if (out == NULL || max <= 0) {
         return 0;
     }
     int count = 0;
@@ -314,7 +316,7 @@ int process_snapshot(process_info_t *out, int max) {
 }
 
 void process_on_tick(task_t *current) {
-    if (!current || !current->proc) {
+    if (current == NULL || current->proc == NULL) {
         return;
     }
     process_t *p = (process_t *)current->proc;

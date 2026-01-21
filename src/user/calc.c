@@ -33,7 +33,7 @@ static void vga_putc(char c) {
 }
 
 static void vga_print(const char *s) {
-    while (*s) {
+    while (*s != 0) {
         vga_putc(*s++);
     }
 }
@@ -49,8 +49,9 @@ static void vga_print_int(int32_t v) {
     }
     char buf[12];
     int i = 0;
-    while (v > 0 && i < (int)sizeof(buf)) {
-        buf[i++] = (char)('0' + (v % 10));
+    int buf_limit = sizeof(buf);
+    while (v > 0 && i < buf_limit) {
+        buf[i++] = '0' + (v % 10);
         v /= 10;
     }
     while (i > 0) {
@@ -78,9 +79,9 @@ static const char scancode_map[128] = {
 
 static char read_key(void) {
     for (;;) {
-        if (inb(0x64) & 1) {
+        if ((inb(0x64) & 1) != 0) {
             uint8_t sc = inb(0x60);
-            if (sc & 0x80) {
+            if ((sc & 0x80) != 0) {
                 continue;
             }
             return scancode_map[sc];
@@ -135,7 +136,7 @@ static int parse_int(const char **p) {
         val = val * 10 + (**p - '0');
         (*p)++;
     }
-    return (int)(val * sign);
+    return val * sign;
 }
 
 void calc_main(void) {
@@ -144,7 +145,7 @@ void calc_main(void) {
 
     vga_print("calc> ");
     char line[64];
-    while (read_line(line, (int)sizeof(line)) > 0) {
+    while (read_line(line, sizeof(line)) > 0) {
         const char *p = line;
         int a = parse_int(&p);
         while (*p == ' ') p++;

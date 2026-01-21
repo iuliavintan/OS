@@ -113,9 +113,7 @@ void kmain(void)
 
     sched_init(5);             // 5 ticks quantum (~50ms if 100Hz PIT)
     task_t *shell = task_create(shell_task, 0);
-    if (shell) {
-        sched_set_foreground_pid(shell->pid);
-    }
+    (void)shell;
     // task_create(taskA, 0);
     // task_create(taskB, 0);
     sched_enable(1);

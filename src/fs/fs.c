@@ -50,9 +50,9 @@ static int find_start_cluster(const char *name8, uint16_t *out_start) {
     fs_dirent *ents = (fs_dirent *)g_root;
     for (uint32_t i = 0; i < (FS_SECTOR_SIZE / sizeof(fs_dirent)); i++) {
         if (name_match(name8, ents[i].name)) {
-            if (out_start) {
-                *out_start = ents[i].start_cluster;
-            }
+        if (out_start != NULL) {
+            *out_start = ents[i].start_cluster;
+        }
             return 0;
         }
     }
@@ -73,7 +73,7 @@ static int chain_length(uint16_t start, uint16_t *out_len) {
             return -1;
         }
     }
-    if (out_len) {
+    if (out_len != NULL) {
         *out_len = count;
     }
     return 0;
@@ -129,14 +129,14 @@ int fs_load_file(const char *name8, void *dest, uint32_t max_sectors, uint32_t *
         count++;
         cluster = fat[cluster];
     }
-    if (out_sectors) {
+    if (out_sectors != NULL) {
         *out_sectors = count;
     }
     return 0;
 }
 
 int fs_file_capacity(const char *name8, uint32_t *out_bytes) {
-    if (!g_fs_ready || !out_bytes) {
+    if (g_fs_ready == 0 || out_bytes == NULL) {
         return -1;
     }
     uint16_t start = 0;
@@ -152,7 +152,7 @@ int fs_file_capacity(const char *name8, uint32_t *out_bytes) {
 }
 
 int fs_write_file(const char *name8, const void *src, uint32_t bytes) {
-    if (!g_fs_ready || !src) {
+    if (g_fs_ready == 0 || src == NULL) {
         return -1;
     }
     uint16_t start = 0;
@@ -175,7 +175,10 @@ int fs_write_file(const char *name8, const void *src, uint32_t bytes) {
     uint8_t sector[FS_SECTOR_SIZE];
     for (uint16_t i = 0; i < count; i++) {
         uint32_t lba = g_hdr.data_lba + (uint32_t)(cluster - 2);
-        uint32_t copy = remaining < FS_SECTOR_SIZE ? remaining : FS_SECTOR_SIZE;
+        uint32_t copy = FS_SECTOR_SIZE;
+        if (remaining < FS_SECTOR_SIZE) {
+            copy = remaining;
+        }
         if (copy > 0) {
             memcpy(sector, src_bytes, copy);
             if (copy < FS_SECTOR_SIZE) {
@@ -204,7 +207,7 @@ int fs_ready(void) {
 }
 
 void fs_iterate_root(void (*cb)(const char *name8, uint16_t start_cluster, void *ctx), void *ctx) {
-    if (!g_fs_ready || !cb) {
+    if (g_fs_ready == 0 || cb == NULL) {
         return;
     }
     fs_dirent *ents = (fs_dirent *)g_root;
