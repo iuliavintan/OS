@@ -8,8 +8,24 @@ This project builds a small 32-bit x86 OS image and runs it in QEMU.
    - `./setup_env.sh`
 2. Restart your shell or load your rc file:
    - `source ~/.zshrc` or `source ~/.bashrc`
-3. Build and run:
+3. Build and run the OS:
    - `make run`
+
+## Manual Run
+- Build and run:
+  - `make run`
+- Clean and rebuild:
+  - `make clean && make run`
+- Build without running QEMU:
+  - `make`
+
+## QEMU Options
+- Override QEMU binary:
+  - `make run QEMU=/path/to/qemu-system-i386`
+- Change memory size:
+  - `make run QEMU="qemu-system-i386 -m 2G"`
+- Add debug flags:
+  - `make run QEMU="qemu-system-i386 -d int,cpu_reset -no-reboot -no-shutdown"`
 
 ## What the Setup Script Does
 `setup_env.sh` will:
