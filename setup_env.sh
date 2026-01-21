@@ -52,8 +52,21 @@ if [ "${#missing_tools[@]}" -gt 0 ]; then
             sudo apt update
             sudo apt install -y "${missing[@]}"
         fi
+        missing_tools=()
+        for tool in "${tools[@]}"; do
+            if command -v "$tool" >/dev/null 2>&1; then
+                echo "Found $tool"
+            else
+                missing_tools+=("$tool")
+            fi
+        done
+        if [ "${#missing_tools[@]}" -gt 0 ]; then
+            echo "Still missing tools after install: ${missing_tools[*]}"
+            exit 1
+        fi
     else
         echo "apt-get not found. Install required packages manually."
+        exit 1
     fi
 fi
 
