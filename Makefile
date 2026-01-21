@@ -128,7 +128,6 @@ $(KERNEL_ELF): $(KERNEL_OBJS) boot/kernel.ld | dirs
 $(KERNEL_BIN): $(KERNEL_ELF)
 	$(OBJCOPY) -O binary $< $@
 
-# User program (calc)
 $(BUILDDIR)/src/user/%.o: src/user/%.c | dirs
 	@mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
