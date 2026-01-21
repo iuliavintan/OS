@@ -29,6 +29,7 @@ done
 if [ "${#missing_tools[@]}" -gt 0 ]; then
     echo "Missing tools: ${missing_tools[*]}"
     if command -v apt-get >/dev/null 2>&1; then
+        echo "Installing required packages with apt-get..."
         packages=(
             build-essential
             nasm
@@ -41,17 +42,8 @@ if [ "${#missing_tools[@]}" -gt 0 ]; then
             texinfo
             wget
         )
-        missing=()
-        for pkg in "${packages[@]}"; do
-            dpkg -s "$pkg" >/dev/null 2>&1
-            if [ $? -ne 0 ]; then
-                missing+=("$pkg")
-            fi
-        done
-        if [ "${#missing[@]}" -gt 0 ]; then
-            sudo apt update
-            sudo apt install -y "${missing[@]}"
-        fi
+        sudo apt update
+        sudo apt install -y "${packages[@]}"
         missing_tools=()
         for tool in "${tools[@]}"; do
             if command -v "$tool" >/dev/null 2>&1; then
